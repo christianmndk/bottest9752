@@ -118,7 +118,7 @@ client.on('message', async message => {
 				// check for new file type
 				if (args.length == 0) { message.channel.send(`${message.author}, you need to provide a new file type for the file`); return; }
 				else if (!ffmpegFormats.includes(args[0])) {message.channel.send(`${message.author}, the first argument must be a valid file extension like mp4`); return;}
-				// check if user made a new name otherwise give it the old name 
+				// check if user made a new name otherwise give it the old name
 				if (args.length > 1 && typeof args[1] === 'string') {
 					if (args[1].includes('.')) {message.reply('the second argument must be a name which does NOT include a \'.\'. Continuing with standart name')}
 					else { name = args[1] + '.' + args[0] }
@@ -126,7 +126,7 @@ client.on('message', async message => {
 				// get the latest file
 				message.channel.messages.fetch({ limit: 10 })
 					.then(messages => {return messages.filter(m => m.attachments.first() && !m.author.bot);})
-					.then(messages => { 
+					.then(messages => {
 						//if (typeof messages.first() === 'undefined') {message.reply('found no pictures 10 messages back, aborting');}
 						if (!messages.first()) {message.reply('found no pictures 10 messages back, aborting');}
 						else {
@@ -149,7 +149,7 @@ client.on('message', async message => {
 									}
 								});
 							});
-						} 
+						}
 					});
 				break;
 			}
@@ -172,7 +172,7 @@ client.on('message', async message => {
 						message.reply(newslat);
 					}
 					else
-						message.reply("the first argument must be an integer larger than or equal to 1"); 
+						message.reply("the first argument must be an integer larger than or equal to 1");
 				});
 				break;
 			}
@@ -252,11 +252,11 @@ client.on('message', async message => {
 					console.log(VoiceChannels);
 
 				}
-				else { 
+				else {
 					if ((VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
 						message.reply('I am already playing in that channel');
 					}
-					else { 
+					else {
 						message.reply(`I am playing in ${VoiceChannels.get(ConnectionID).get('channel')} right now`);
 					}
 				console.log(VoiceChannels);
