@@ -195,7 +195,7 @@ client.on('message', async message => {
                         addVoiceConnection(connection, message)
                         console.log(VoiceChannels)
                     }
-                    else { message.reply('I am playing in another voice channel right now') }
+                    else { message.reply(`I am playing in #${VoiceChannels.get(ConnectionID).get} right now`) }
                 }
                 else { message.reply('I am already playing in that channel') }
                     
