@@ -143,14 +143,26 @@ client.on('message', async message => {
                     });
                 break;
             }
-            
+            //testbot jslat
             case 'jslat' : {
-                var fs = require('fs');
-                var filename = "assets/test.txt";
+                var filename = "assets/message.txt";
                 fs.readFile(filename, 'utf8', function(err, data) {
                     if (err) throw err;
-                    console.log('OK: ' + filename);
-                    console.log(data)
+                    const namearray = data.split(',');
+                    var newslat = "";
+
+                    if(args >=1){
+                        for (let i = 0; i < args[0]; i++) {
+                            var randomNumber = Math.floor(Math.random()*namearray.length);
+                            const element = namearray[randomNumber];
+                            newslat += element + " ";
+                        }
+                        console.log(newslat);
+                        message.reply(newslat);
+                    }
+                    else
+                        message.reply("try again retard");
+                    
                 });
                 break;
             }
