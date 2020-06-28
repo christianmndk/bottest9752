@@ -21,11 +21,8 @@ const { spawn } = require('child_process');
 const client = new Client();
 let VoiceChannels = new Map();
 
-var test = new Map();
-
 // Create some constants
 const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
-
 
 // Adding a voice connection
 async function addVoiceConnection(message) {
@@ -86,7 +83,7 @@ client.on('message', async message => {
             }
             // testbot reply
             case 'webm': {
-                if (typeof message.attachments.first() === 'undefined') {
+                if (message.attachments.first()) {
                     message.reply('the command \'webm\' requires a webm attachment sent with the message');
                     break;
                 }
@@ -130,9 +127,10 @@ client.on('message', async message => {
                 }
                 // get the latest file
                 message.channel.messages.fetch({ limit: 10 })
-                    .then(messages => {return messages.filter(m => typeof m.attachments.first() !== 'undefined' && !m.author.bot);})
+                    .then(messages => {return messages.filter(m => m.attachments.first() && !m.author.bot);})
                     .then(messages => { 
-                        if (typeof messages.first() === 'undefined') {message.reply('found no pictures 10 messages back, aborting');}
+                        //if (typeof messages.first() === 'undefined') {message.reply('found no pictures 10 messages back, aborting');}
+                        if (!messages.first()) {message.reply('found no pictures 10 messages back, aborting');}
                         else {
                             messages.first().attachments.each(attachment => {
                                 // check for name
