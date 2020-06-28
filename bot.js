@@ -190,22 +190,24 @@ client.on('message', async message => {
             case 'join' : {
                 ConnectionID = message.guild.id
                 // check if we are already in a voice channel in that guild
-                if (VoiceChannels.has(ConnectionID)){
+                if (!VoiceChannels.has(ConnectionID)){
+                    const connection = await message.member.voice.channel.join();
+                    addVoiceConnection(connection, message)
                     console.log(VoiceChannels)
-                    if (!(VoiceChannels.get(ConnectionID).get(id) == message.member.voice.channel.id)){
-                        const connection = await message.member.voice.channel.join();
-                        addVoiceConnection(connection, message)
-                        console.log(VoiceChannels)
-                    }
-                    else { message.reply(`I am playing in #${VoiceChannels.get(ConnectionID).get} right now`) }
                 }
-                else { message.reply('I am already playing in that channel') }
-                    
+                else { 
+                    if ((VoiceChannels.get(ConnectionID).get(id) == message.member.voice.channel.id)) {
+                        message.reply('I am already playing in that channel')
+                    }
+                    else { 
+                        message.reply(`I am playing in #${VoiceChannels.get(ConnectionID).get(name)} right now`) 
+                    }
+                console.log(VoiceChannels)
                 break;
+                }
             }
             // soundbot play
             case 'play' : {
-                const dispatcher = connection.play('./You_Are_Mine-S3RL_(ft Kayliana)--You_Are_Mine_-_S3RL_ft_Kayliana.mp3')
                 break;
             }
             // soundbot leave
