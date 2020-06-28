@@ -14,7 +14,7 @@ const request = https.get(attachment.url, function(response) {
 */
 
 // Extract the required classes from the required modules
-const { Client, MessageAttachment } = require('discord.js');
+const { Client, MessageAttachment, MessageEmbed } = require('discord.js');
 const { spawn } = require('child_process');
 
 // Create an instance of a Discord client
@@ -175,24 +175,29 @@ client.on('message', async message => {
 						message.reply("the first argument must be an integer larger than or equal to 1");
 				});
 				break;
-			}// testbot test
+			}
+			// testbot spotify
 			case 'spotify' : {
-				/*const exampleEmbed = new Discord.MessageEmbed()
+				const spotify = message.author.presence.activities[0];
+				const sangnavn = spotify.details;
+				const Kunstner = spotify.state;
+				const albumnavn = message.author.presence.activities[0].assets.largeText;
+
+				const spotifybesked = new MessageEmbed()
+					.setColor('#1DB954')
 					.setTitle('Spotify')
-					.setAuthor('bottest9752', 'assets/chr.jpg')
-					.setThumbnail('https://i.imgur.com/wSTFkRM.png')
+					.setAuthor('bottest9752')
+					.setThumbnail('https://x19-christian.it.slotshaven.dk/chr.jpg')
 					.addFields(
-						{ name: 'Kunstner', value: 'Some value here' },
-							//{ name: '\u200B', value: '\u200B' },//Unicode Character 'ZERO WIDTH SPACE'
-						{ name: 'Inline field title', value: 'Some value here', inline: true },
-						{ name: 'Inline field title', value: 'Some value here', inline: true },
+						{ name: 'Sang navn', value: sangnavn},
+						//{ name: '\u200B', value: '\u200B' },//Unicode Character 'ZERO WIDTH SPACE' 
+						{ name: 'Kunstner', value: Kunstner,},
+						{ name: 'Album navn', value: albumnavn, inline: true },
 					)
-					.addField('Inline field title', 'Some value here', true)
-					.setImage('https://i.imgur.com/wSTFkRM.png')
-					.setTimestamp()
-					.setFooter('Some footer text here', 'https://i.imgur.com/wSTFkRM.png'); */
-				console.log(message.author.presence.activities[0].details)
-				//message.reply(`${message.author.presence.activities[0].details}`)
+					//.setImage(spotify.assets.largeImage) // virker ikke helt endnu
+					.setTimestamp(); // ----  slut for  spotifybesked Embed besked
+				//console.log(message.author.presence.activities[0]); // god for debuging
+				message.reply(spotifybesked); 
 				break;
 			}
 			// testbot test
