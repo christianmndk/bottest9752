@@ -278,6 +278,8 @@ client.on('message', async message => {
             }
             // soundbot test
             case 'test' : {
+                console.log(message.author.presence.activities[0].details)
+                message.reply(`${message.author.presence.activities[0].details}`)
                 break;
             }
             // Just add any case commands if you want to..
