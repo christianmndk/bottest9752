@@ -133,7 +133,7 @@ client.on('message', async message => {
                                         console.log(attachment.url)
                                         console.log('Sending converted')
                                         Converted = new MessageAttachment('./file.' + args[0], name);
-                                        message.reply(Converted).then(fs.unlink('./file.' + args[0], er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
+                                        message.reply(Converted).then(fs.unlink('./file.' + args[0], er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error('An error occurred and was caught:\n', er));
                                     }
                                     else {
                                         console.log('ffmpeg failed during conversion')
@@ -251,7 +251,15 @@ client.on('message', async message => {
                 break;
             }
             // soundbot leave
-            case 'join' : {
+            case 'leave' : {
+                let ConnectionID = message.guild.id
+                if (VoiceChannels.has(ConnectionID)) {
+                    if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
+
+                    }
+                    else {message.reply('you must be in the same ')}
+                }
+                else { message.reply('the bot must be running for you to use that command') }
                 break;
             }
             // soundbot test
