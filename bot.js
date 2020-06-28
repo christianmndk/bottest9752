@@ -85,32 +85,31 @@ client.on('message', async message => {
             case 'webm': {
                 if (message.attachments.first()) {
                     message.reply('the command \'webm\' requires a webm attachment sent with the message');
+                    break;
                 }
-                else {
-                    // Go through each attachment
-                    message.attachments.each(attachment => {
-                        // Create an identical attachment as the one in the message and send it back
-                        name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join() + ".mp4";
-                        if (!attachment.name.toLowerCase().endsWith('webm')) {
-                            message.reply(attachment.name + ' was not converted because it is not a webm');
-                        }
-                        else {
-                            var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy' ,'file.mp4']);
-                            ffmpeg.on('close', code => {
-                                if (code == 0) {
-                                    console.log(attachment);
-                                    console.log('Sending converted');
-                                    Converted = new MessageAttachment('./file.mp4', name);
-                                    message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
-                                }
-                                else {
-                                    console.log('ffmpeg failed during conversion');
-                                    message.reply(attachment.name + ' could not be converted because an error happened during conversion');
-                                }
-                            });
-                        }
-                    });
-                }
+                // Go through each attachment
+                message.attachments.each(attachment => {
+                    // Create an identical attachment as the one in the message and send it back
+                    name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join() + ".mp4";
+                    if (!attachment.name.toLowerCase().endsWith('webm')) {
+                        message.reply(attachment.name + ' was not converted because it is not a webm');
+                    }
+                    else {
+                        var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy' ,'file.mp4']);
+                        ffmpeg.on('close', code => {
+                            if (code == 0) {
+                                console.log(attachment);
+                                console.log('Sending converted');
+                                Converted = new MessageAttachment('./file.mp4', name);
+                                message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
+                            }
+                            else {
+                                console.log('ffmpeg failed during conversion');
+                                message.reply(attachment.name + ' could not be converted because an error happened during conversion');
+                            }
+                        });
+                    }
+                });
                 break;
             }
             // testbot convert
