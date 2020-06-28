@@ -190,7 +190,8 @@ client.on('message', async message => {
             case 'join' : {
                 ConnectionID = message.guild.id
                 // check if we are already in a voice channel in that guild
-                if (!VoiceChannels.has(ConnectionID)){
+                if (VoiceChannels.has(ConnectionID)){
+                    console.log(VoiceChannels)
                     if (!(VoiceChannels.get(ConnectionID).get(id) == message.member.voice.channel.id)){
                         const connection = await message.member.voice.channel.join();
                         addVoiceConnection(connection, message)
