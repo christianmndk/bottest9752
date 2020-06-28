@@ -176,7 +176,7 @@ client.on('message', async message => {
                         message.reply(newslat);
                     }
                     else
-                        message.reply("try again retard");
+                        message.reply("the first argument must be an integer larger than or equal to 1");
                     
                 });
                 break;
