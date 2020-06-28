@@ -186,7 +186,6 @@ client.on('message', async message => {
 				const spotifybesked = new MessageEmbed()
 					.setColor('#1DB954')
 					.setTitle('Spotify')
-					.setAuthor('bottest9752')
 					.setThumbnail('https://x19-christian.it.slotshaven.dk/chr.jpg')
 					.addFields(
 						{ name: 'Song name', value: sangnavn},
