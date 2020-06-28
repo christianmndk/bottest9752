@@ -175,7 +175,7 @@ client.on('message', async message => {
                         message.reply(newslat);
                     }
                     else
-                        message.reply("try again retard");
+                        message.reply("ha, try again retard");
                     
                 });
                 break;
