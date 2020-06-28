@@ -182,9 +182,6 @@ client.on('message', async message => {
             }
             // testbot test
             case 'test' : {
-                test.set(message.guild.id, message.id)
-                console.log(test)
-                test.forEach(t => console.log(t))
                 break;
             }
             // Just add any case commands if you want to..
