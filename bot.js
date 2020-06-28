@@ -14,18 +14,15 @@ const request = https.get(attachment.url, function(response) {
 */
 
 // Extract the required classes from the required modules
-const { Client, MessageAttachment, MessageManager } = require('discord.js');
+const { Client, MessageAttachment } = require('discord.js');
 const { spawn } = require('child_process');
 
 // Create an instance of a Discord client
 const client = new Client();
 let VoiceChannels = new Map();
 
-var test = new Map();
-
 // Create some constants
 const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
-
 
 // Adding a voice connection
 async function addVoiceConnection(message) {
@@ -86,35 +83,33 @@ client.on('message', async message => {
             }
             // testbot reply
             case 'webm': {
-                if (typeof message.attachments.first() === 'undefined') {
+                if (message.attachments.first()) {
                     message.reply('the command \'webm\' requires a webm attachment sent with the message');
                     break;
                 }
-                else {
-                    // Go through each attachment
-                    message.attachments.each(attachment => {
-                        // Create an identical attachment as the one in the message and send it back
-                        name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join() + ".mp4";
-                        if (!attachment.name.toLowerCase().endsWith('webm')) {
-                            message.reply(attachment.name + ' was not converted because it is not a webm');
-                        }
-                        else {
-                            var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy' ,'file.mp4']);
-                            ffmpeg.on('close', code => {
-                                if (code == 0) {
-                                    console.log(attachment);
-                                    console.log('Sending converted');
-                                    Converted = new MessageAttachment('./file.mp4', name);
-                                    message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
-                                }
-                                else {
-                                    console.log('ffmpeg failed during conversion');
-                                    message.reply(attachment.name + ' could not be converted because an error happened during conversion');
-                                }
-                            });
-                        }
-                    });
-                }
+                // Go through each attachment
+                message.attachments.each(attachment => {
+                    // Create an identical attachment as the one in the message and send it back
+                    name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join() + ".mp4";
+                    if (!attachment.name.toLowerCase().endsWith('webm')) {
+                        message.reply(attachment.name + ' was not converted because it is not a webm');
+                    }
+                    else {
+                        var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy' ,'file.mp4']);
+                        ffmpeg.on('close', code => {
+                            if (code == 0) {
+                                console.log(attachment);
+                                console.log('Sending converted');
+                                Converted = new MessageAttachment('./file.mp4', name);
+                                message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
+                            }
+                            else {
+                                console.log('ffmpeg failed during conversion');
+                                message.reply(attachment.name + ' could not be converted because an error happened during conversion');
+                            }
+                        });
+                    }
+                });
                 break;
             }
             // testbot convert
@@ -130,9 +125,10 @@ client.on('message', async message => {
                 }
                 // get the latest file
                 message.channel.messages.fetch({ limit: 10 })
-                    .then(messages => {return messages.filter(m => typeof m.attachments.first() !== 'undefined' && !m.author.bot);})
+                    .then(messages => {return messages.filter(m => m.attachments.first() && !m.author.bot);})
                     .then(messages => { 
-                        if (typeof messages.first() === 'undefined') {message.reply('found no pictures 10 messages back, aborting');}
+                        //if (typeof messages.first() === 'undefined') {message.reply('found no pictures 10 messages back, aborting');}
+                        if (!messages.first()) {message.reply('found no pictures 10 messages back, aborting');}
                         else {
                             messages.first().attachments.each(attachment => {
                                 // check for name
@@ -246,7 +242,7 @@ client.on('message', async message => {
             }
             // soundbot join
             case 'join' : {
-                let ConnectionID = message.guild.id
+                let ConnectionID = message.guild.id;
                 // check if we are already in a voice channel in that guild
                 if (!VoiceChannels.has(ConnectionID)){
                     await addVoiceConnection(message);
@@ -267,7 +263,7 @@ client.on('message', async message => {
             }
             // soundbot play
             case 'play' : {
-                let ConnectionID = message.guild.id
+                let ConnectionID = message.guild.id;
                 if (VoiceChannels.has(ConnectionID)){
                     if (!(VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
                         message.reply('You must be in the same voice channel as the bot to use this command');
@@ -275,32 +271,32 @@ client.on('message', async message => {
                     }
                 }
                 else {
-                    await addVoiceConnection(message)
-                    console.log(VoiceChannels)
+                    await addVoiceConnection(message);
+                    console.log(VoiceChannels);
                 }
-                connection = VoiceChannels.get(ConnectionID).get('connection')
-                connection.play('You_Are_Mine-S3RL_(ft Kayliana)--You_Are_Mine_-_S3RL_ft_Kayliana.mp3')
+                connection = VoiceChannels.get(ConnectionID).get('connection');
+                connection.play('You_Are_Mine-S3RL_(ft Kayliana)--You_Are_Mine_-_S3RL_ft_Kayliana.mp3');
                 break;
             }
             // soundbot leave
             case 'leave' : {
-                let ConnectionID = message.guild.id
+                let ConnectionID = message.guild.id;
                 if (VoiceChannels.has(ConnectionID)) {
                     if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-                        connection = VoiceChannels.get(ConnectionID).get('connection')
-                        connection.disconnect()
-                        removeVoiceConnection(ConnectionID)
-                        console.log(VoiceChannels)
+                        connection = VoiceChannels.get(ConnectionID).get('connection');
+                        connection.disconnect();
+                        removeVoiceConnection(ConnectionID);
+                        console.log(VoiceChannels);
                     }
-                    else {message.reply('you must be in the same ')}
+                    else { message.reply('you must be in the same '); }
                 }
-                else { message.reply('the bot must be running for you to use that command') }
+                else { message.reply('the bot must be running for you to use that command'); }
                 break;
             }
             // soundbot test
             case 'test' : {
-                console.log(message.author.presence.activities[0].details)
-                message.reply(`${message.author.presence.activities[0].details}`)
+                console.log(message.author.presence.activities[0].details);
+                message.reply(`${message.author.presence.activities[0].details}`);
                 break;
             }
             // Just add any case commands if you want to..
