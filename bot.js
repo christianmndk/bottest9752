@@ -130,13 +130,13 @@ client.on('message', async message => {
                                 console.log(name)
                                 ffmpeg.on('close', code => {
                                     if (code == 0) {
-                                        console.log(attachment.url)
-                                        console.log('Sending converted')
+                                        console.log(attachment.url);
+                                        console.log('Sending converted');
                                         Converted = new MessageAttachment('./file.' + args[0], name);
                                         message.reply(Converted).then(fs.unlink('./file.' + args[0], er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
                                     }
                                     else {
-                                        console.log('ffmpeg failed during conversion')
+                                        console.log('ffmpeg failed during conversion');
                                         message.reply(attachment.name + 'could not be converted because an error happened during conversion');
                                     }
                                 });
