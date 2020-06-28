@@ -44,10 +44,21 @@ async function addVoiceConnection(message) {
 function removeVoiceConnection(ConnectionID) {
     VoiceChannels.delete(ConnectionID)
 }
-
+// notify us when the bot is ready
 client.on('ready', () => {
     console.log('I am ready!');
   });
+
+process.on('SIGINT', function() {
+    console.log('Caught interrupt signal')
+    VoiceChannels.forEach(voiceConnection => {
+        voiceConnection.get('connection').disconnect();
+    });
+
+    process.exit();
+});
+
+
 
 client.on('message', async message => {
     // If the message is starts with testbot and author is not a bot
@@ -109,8 +120,8 @@ client.on('message', async message => {
             case 'convert' : {
                 var name;
                 // check for new file type
-                if (args.length == 0) { message.channel.send(`${message.author}, you need to provide a new file type for the file`) }
-                else if (!ffmpegFormats.includes(args[0])) {message.channel.send(`${message.author}, the first argument must be a valid file extension like mp4`)}
+                if (args.length == 0) { message.channel.send(`${message.author}, you need to provide a new file type for the file`); return; }
+                else if (!ffmpegFormats.includes(args[0])) {message.channel.send(`${message.author}, the first argument must be a valid file extension like mp4`); return;}
                 // check if user made a new name otherwise give it the old name 
                 if (args.length > 1 && typeof args[1] === 'string') {
                     if (args[1].includes('.')) {message.reply('the second argument must be a name which does NOT include a \'.\'. Continuing with standart name')}
@@ -255,7 +266,8 @@ client.on('message', async message => {
                 let ConnectionID = message.guild.id
                 if (VoiceChannels.has(ConnectionID)) {
                     if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-
+                        connection = VoiceChannels.get(ConnectionID).get('connection')
+                        connection.disconnect()
                     }
                     else {message.reply('you must be in the same ')}
                 }
