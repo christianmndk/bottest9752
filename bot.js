@@ -189,6 +189,7 @@ client.on('message', async message => {
             // soundbot join
             case 'join' : {
                 ConnectionID = message.guild.id + message.member.voice.channel.id
+                // check if we are already in a voice channel in that guild
                 if (!VoiceChannels.has(ConnectionID)){
                     if (!(VoiceChannels.get(ConnectionID).get(guild) == message.guild.id)){
                         const connection = await message.member.voice.channel.join();
