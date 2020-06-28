@@ -158,7 +158,7 @@ client.on('message', async message => {
                         for (let i = 0; i < args[0]; i++) {
                             var randomNumber = Math.floor(Math.random()*namearray.length);
                             const element = namearray[randomNumber];
-                            newslat += element + " ";
+                            newslat += element + "\n";
                         }
                         console.log(newslat);
                         message.reply(newslat);
