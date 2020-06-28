@@ -249,8 +249,5 @@ client.on('message', async message => {
     }
 });
 
-client.on('message', async message => {
-    
-});
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
 client.login(auth.token);
