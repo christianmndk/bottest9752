@@ -3,6 +3,7 @@ var auth = require('./auth.json');
 // used so the bot can download things
 const https = require('https');
 const fs = require('fs');
+const ytdl = require('ytdl-core');
 /*
 How to download
 // Find the file type and download it
@@ -280,7 +281,7 @@ client.on('message', async message => {
 					console.log(VoiceChannels);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
-				connection.play('You_Are_Mine-S3RL_(ft Kayliana)--You_Are_Mine_-_S3RL_ft_Kayliana.mp3');
+				connection.play(ytdl('https://www.youtube.com/watch?v=1gW1uHRPChc', { filter: 'audioonly' })'');
 				break;
 			}
 			// soundbot leave
