@@ -189,10 +189,10 @@ client.on('message', async message => {
 					.setAuthor('bottest9752')
 					.setThumbnail('https://x19-christian.it.slotshaven.dk/chr.jpg')
 					.addFields(
-						{ name: 'Sang navn', value: sangnavn},
+						{ name: 'Song name', value: sangnavn},
 						//{ name: '\u200B', value: '\u200B' },//Unicode Character 'ZERO WIDTH SPACE' 
-						{ name: 'Kunstner', value: Kunstner,},
-						{ name: 'Album navn', value: albumnavn, inline: true },
+						{ name: 'Artist', value: Kunstner,},
+						{ name: 'Album', value: albumnavn, inline: true },
 					)
 					//.setImage(spotify.assets.largeImage) // virker ikke helt endnu
 					.setTimestamp(); // ----  slut for  spotifybesked Embed besked
