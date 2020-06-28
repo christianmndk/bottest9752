@@ -180,25 +180,30 @@ client.on('message', async message => {
 			// testbot spotify
 			case 'spotify' : {
 				const spotify = message.author.presence.activities[0];
-				const sangnavn = spotify.details;
-				const Kunstner = spotify.state;
-				const albumnavn = message.author.presence.activities[0].assets.largeText;
+				if(spotify.name == 'Spotify') // sikker på det er spotify vi få fat i
+				{
+					const sangnavn = spotify.details;
+					const Kunstner = spotify.state;
+					const albumnavn = message.author.presence.activities[0].assets.largeText;
 
-				const spotifybesked = new MessageEmbed()
-					.setColor('#1DB954')
-					.setTitle('Spotify')
-					.setAuthor('bottest9752')
-					.setThumbnail('https://x19-christian.it.slotshaven.dk/chr.jpg')
-					.addFields(
-						{ name: 'Song name', value: sangnavn},
-						//{ name: '\u200B', value: '\u200B' },//Unicode Character 'ZERO WIDTH SPACE' 
-						{ name: 'Artist', value: Kunstner,},
-						{ name: 'Album', value: albumnavn, inline: true },
-					)
-					//.setImage(spotify.assets.largeImage) // virker ikke helt endnu
-					.setTimestamp(); // ----  slut for  spotifybesked Embed besked
-				//console.log(message.author.presence.activities[0]); // god for debuging
-				message.reply(spotifybesked); 
+					const spotifybesked = new MessageEmbed()
+						.setColor('#1DB954')
+						.setTitle('Spotify')
+						.attachFiles(['assets/chr.jpg'])
+						.setThumbnail('attachment://chr.jpg')
+						//.setThumbnail('https://i.imgur.com/wSTFkRM.png') // https://x19-christian.it.slotshaven.dk/chr.jpg
+						.addFields(
+							{ name: 'Song name', value: sangnavn},
+							//{ name: '\u200B', value: '\u200B' },//Unicode Character 'ZERO WIDTH SPACE' 
+							{ name: 'Artist', value: Kunstner},
+							{ name: 'Album', value: albumnavn},
+						)
+						//.setImage(spotify.assets.largeImage) // virker ikke helt endnu
+						.addField('\u200B', '\u200B', true)
+						.setTimestamp(); // ----  slut for  spotifybesked Embed besked
+					//console.log(message.author.presence.activities[0]); // god for debuging
+					message.reply(spotifybesked); 
+				}
 				break;
 			}
 			// testbot test
