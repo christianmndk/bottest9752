@@ -195,10 +195,10 @@ client.on('message', async message => {
 				//message.reply(`${message.author.presence.activities[0].details}`)
 				break;
 			}
-
-
 			// testbot test
 			case 'test' : {
+				console.log(message.author.presence.activities[0])
+				console.log(message.author.presence.activities[0].assets.largeText)
 				break;
 			}
 			// Just add any case commands if you want to..
