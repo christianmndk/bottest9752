@@ -19,10 +19,11 @@ const { spawn } = require('child_process');
 
 // Create an instance of a Discord client
 const client = new Client();
+let VoiceChannels = new Map()
 
 // Create some constants
 const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
-let VoiceChannels = new Map()
+
 
 // Adding a voice connection
 function addVoiceConnection(connection, message) {
@@ -31,9 +32,9 @@ function addVoiceConnection(connection, message) {
     info.set('queue', '')
     info.set('id', message.member.voice.channel.id)
     info.set('guild', message.guild.id)
-    info.set('name', message.member.voice.channel.name)
+    info.set('channel', message.member.voice.channel)
     info.set('connection', connection)
-    ConnectionID = message.guild.id + message.member.voice.channel.id
+    ConnectionID = message.guild.id
     console.log(ConnectionID)
     VoiceChannels.set(ConnectionID, info)
 }
@@ -146,6 +147,7 @@ client.on('message', async message => {
             //testbot jslat
             case 'jslat' : {
                 var filename = "assets/message.txt";
+
                 fs.readFile(filename, 'utf8', function(err, data) {
                     if (err) throw err;
                     const namearray = data.split(',');
@@ -211,19 +213,20 @@ client.on('message', async message => {
             }
             // soundbot join
             case 'join' : {
-                ConnectionID = message.guild.id
+                let ConnectionID = message.guild.id
                 // check if we are already in a voice channel in that guild
                 if (!VoiceChannels.has(ConnectionID)){
                     const connection = await message.member.voice.channel.join();
                     addVoiceConnection(connection, message)
                     console.log(VoiceChannels)
+
                 }
                 else { 
-                    if ((VoiceChannels.get(ConnectionID).get(id) == message.member.voice.channel.id)) {
+                    if ((VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
                         message.reply('I am already playing in that channel')
                     }
                     else { 
-                        message.reply(`I am playing in #${VoiceChannels.get(ConnectionID).get(name)} right now`) 
+                        message.reply(`I am playing in ${VoiceChannels.get(ConnectionID).get('channel')} right now`) 
                     }
                 console.log(VoiceChannels)
                 break;
