@@ -85,7 +85,6 @@ client.on('message', async message => {
             case 'webm': {
                 if (message.attachments.first()) {
                     message.reply('the command \'webm\' requires a webm attachment sent with the message');
-                    break;
                 }
                 else {
                     // Go through each attachment
