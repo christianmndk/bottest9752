@@ -143,6 +143,17 @@ client.on('message', async message => {
                     });
                 break;
             }
+            
+            case 'jslat' : {
+                var fs = require('fs');
+                var filename = "assets/test.txt";
+                fs.readFile(filename, 'utf8', function(err, data) {
+                    if (err) throw err;
+                    console.log('OK: ' + filename);
+                    console.log(data)
+                });
+                break;
+            }
             // testbot test
             case 'test' : {
                 break;
