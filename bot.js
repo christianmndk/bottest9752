@@ -159,7 +159,7 @@ client.on('message', async message => {
             }
             //testbot jslat
             case 'jslat' : {
-                var filename = "assets/message.txt";
+                const filename = "assets/message.txt";
 
                 fs.readFile(filename, 'utf8', function(err, data) {
                     if (err) throw err;
@@ -176,8 +176,7 @@ client.on('message', async message => {
                         message.reply(newslat);
                     }
                     else
-                        message.reply("the first argument must be an integer larger than or equal to 1");
-                    
+                        message.reply("the first argument must be an integer larger than or equal to 1"); 
                 });
                 break;
             }
