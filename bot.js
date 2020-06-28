@@ -19,7 +19,7 @@ const { spawn } = require('child_process');
 
 // Create an instance of a Discord client
 const client = new Client();
-let VoiceChannels = new Map()
+let VoiceChannels = new Map();
 
 // Create some constants
 const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
@@ -28,37 +28,36 @@ const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3',
 // Adding a voice connection
 async function addVoiceConnection(message) {
     const connection = await message.member.voice.channel.join();
-    var info = new Map()
-    info.set('playing', '')
-    info.set('queue', '')
-    info.set('id', message.member.voice.channel.id)
-    info.set('guild', message.guild.id)
-    info.set('channel', message.member.voice.channel)
-    info.set('connection', connection)
-    ConnectionID = message.guild.id
-    console.log(ConnectionID)
-    VoiceChannels.set(ConnectionID, info)
+    var info = new Map();
+    info.set('playing', '');
+    info.set('queue', '');
+    info.set('id', message.member.voice.channel.id);
+    info.set('guild', message.guild.id);
+    info.set('channel', message.member.voice.channel);
+    info.set('connection', connection);
+    ConnectionID = message.guild.id;
+    console.log(ConnectionID);
+    VoiceChannels.set(ConnectionID, info);
 }
 
 // removing a voice connection
 function removeVoiceConnection(ConnectionID) {
     VoiceChannels.delete(ConnectionID)
 }
+
 // notify us when the bot is ready
 client.on('ready', () => {
     console.log('I am ready!');
   });
 
 process.on('SIGINT', function() {
-    console.log('Caught interrupt signal')
+    console.log('Caught interrupt signal');
     VoiceChannels.forEach(voiceConnection => {
         voiceConnection.get('connection').disconnect();
     });
 
     process.exit();
 });
-
-
 
 client.on('message', async message => {
     // If the message is starts with testbot and author is not a bot
@@ -268,6 +267,8 @@ client.on('message', async message => {
                     if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
                         connection = VoiceChannels.get(ConnectionID).get('connection')
                         connection.disconnect()
+                        removeVoiceConnection(ConnectionID)
+                        console.log(VoiceChannels)
                     }
                     else {message.reply('you must be in the same ')}
                 }
