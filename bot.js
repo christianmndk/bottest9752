@@ -21,6 +21,8 @@ const { spawn } = require('child_process');
 const client = new Client();
 let VoiceChannels = new Map();
 
+var test = new Map();
+
 // Create some constants
 const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
 
@@ -50,12 +52,12 @@ client.on('ready', () => {
     console.log('I am ready!');
   });
 
+// is run when node js is stopped using CTRL-c
 process.on('SIGINT', function() {
     console.log('Caught interrupt signal');
-    VoiceChannels.forEach(voiceConnection => {
-        voiceConnection.get('connection').disconnect();
-    });
+    // add stuff here
 
+    // exit when we are done
     process.exit();
 });
 
@@ -181,6 +183,9 @@ client.on('message', async message => {
             }
             // testbot test
             case 'test' : {
+                test.set(message.guild.id, message.id)
+                console.log(test)
+                test.forEach(t => console.log(t))
                 break;
             }
             // Just add any case commands if you want to..
