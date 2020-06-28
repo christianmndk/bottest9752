@@ -142,13 +142,13 @@ client.on('message', async message => {
                                 console.log(name)
                                 ffmpeg.on('close', code => {
                                     if (code == 0) {
-                                        console.log(attachment.url)
-                                        console.log('Sending converted')
+                                        console.log(attachment.url);
+                                        console.log('Sending converted');
                                         Converted = new MessageAttachment('./file.' + args[0], name);
                                         message.reply(Converted).then(fs.unlink('./file.' + args[0], er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error('An error occurred and was caught:\n', er));
                                     }
                                     else {
-                                        console.log('ffmpeg failed during conversion')
+                                        console.log('ffmpeg failed during conversion');
                                         message.reply(attachment.name + 'could not be converted because an error happened during conversion');
                                     }
                                 });
@@ -170,7 +170,7 @@ client.on('message', async message => {
                         for (let i = 0; i < args[0]; i++) {
                             var randomNumber = Math.floor(Math.random()*namearray.length);
                             const element = namearray[randomNumber];
-                            newslat += element + " ";
+                            newslat += element + "\n";
                         }
                         console.log(newslat);
                         message.reply(newslat);
