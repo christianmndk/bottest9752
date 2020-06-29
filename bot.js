@@ -326,10 +326,6 @@ client.on('message', async message => {
 					console.error('id and url dis not yield a valid url')
 					message.reply('that video not available')
 				}
-
-
-
-				
 				break;
 			}
 			// soundbot leave
@@ -349,6 +345,8 @@ client.on('message', async message => {
 			}
 			// soundbot test
 			case 'test' : {
+
+
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -385,4 +383,12 @@ async function getVideoId(searchQuery) {
 			}
 		});
 	return response;
+}
+
+function youtubeembed(youtubevideoid) {
+	const exampleEmbed = new Discord.MessageEmbed()
+	.setColor('#FF0000')
+	.setTitle('Youtube playing:')
+	.setThumbnail(`https://img.youtube.com/vi/${youtubevideoid}/0.jpg`)
+	.addField('Video name', '', true);
 }
