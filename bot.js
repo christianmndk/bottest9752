@@ -235,6 +235,7 @@ client.on('message', async message => {
 			}
 			// testbot test
 			case 'test' : {
+				break;
 			}
 			// Just add any case commands if you want to..
 		}
@@ -312,26 +313,25 @@ client.on('message', async message => {
 					message.reply('you must give at least one word as argument');
 					break;
 				}
-				args = args.join(' ').split('@');
-				const searchQuery = args[0];
+				args = args.join(' ').split('@')
+				const searchQuery = args[0]
 				var start = 0;
 				if (!isNaN(args[1])){
-					start = +args[1];
+					start = +args[1]
 				} else if (args[1]) {
-					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')');
+					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')')
 				}
-				console.log(start);
-				const [id, videoname] = await getVideoId(searchQuery); // const id = videoid, const videoname = videoname
-				const url = `https://www.youtube.com/watch?v=${id}`;
+				console.log(start)
+				const id = await getVideoId(searchQuery)
+				const url = `https://www.youtube.com/watch?v=${id}`
 				if (ytdl.validateURL(url)) {
-					console.log(`Now playing "${url}" in ${ConnectionID}`);
-					//youtubeembed(id,videoname); // for chat embed
+					console.log(`Now playing "${url}" in ${ConnectionID}`)
 					connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} );
 					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
 				} else {
-					console.error('id and url dis not yield a valid url');
-					message.reply('that video not available');
-				}
+					console.error('id and url dis not yield a valid url')
+					message.reply('that video not available')
+				}				
 				break;
 			}
 			// soundbot leave
@@ -351,8 +351,6 @@ client.on('message', async message => {
 			}
 			// soundbot test
 			case 'test' : {
-
-				console.log(await getVideoId("505 arctic monkeys"));
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -366,8 +364,7 @@ client.login(auth.token);
 // Define common functions
 
 async function getVideoId(searchQuery) {
-	console.log(searchQuery);
-	let videoname = "";
+	console.log(searchQuery)
 	if (typeof searchQuery !== 'string') {
 		console.log('search query was not a string: aborting search')
 		return; 
@@ -388,20 +385,8 @@ async function getVideoId(searchQuery) {
 			} else {
 				console.log(video)
 				console.log('returning id:\n' + video[0].id.videoId)
-
-				return [video[0].id.videoId, video[0].snippet.title]; // array [videoid of video, title of video]
+				return video[0].id.videoId; 
 			}
 		});
-	return response; 
-}
-
-function youtubeembed(videoid,videoname,message) {
-	const url = `https://www.youtube.com/watch?v=${videoid}`;
-	const embed = new MessageEmbed()
-		.setColor('#FF0000')
-		.setTitle('Youtube playing:')
-		.setThumbnail(`https://img.youtube.com/vi/${videoid}/0.jpg`)
-		.addField('Video name', videoname, true)
-		.addField('link:', url, true);
-	message.reply(embed);
+	return response;
 }
