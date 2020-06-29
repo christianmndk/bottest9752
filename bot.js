@@ -235,8 +235,6 @@ client.on('message', async message => {
 			}
 			// testbot test
 			case 'test' : {
-				console.log(GetAuth())
-				break;
 			}
 			// Just add any case commands if you want to..
 		}
@@ -258,7 +256,6 @@ client.on('message', async message => {
 			message.reply('you must be in a voice channel to use that command');
 			return;
 		}
-
 		var args = message.content.substring(9).split(' ');
 		var cmd = args[0];
 		args = args.splice(1);
@@ -306,30 +303,34 @@ client.on('message', async message => {
 						message.reply('You must be in the same voice channel as the bot to use this command');
 						return;
 					}
-				}
-				else {
+				} else {
 					await addVoiceConnection(message);
-					console.log(VoiceChannels);
+					console.log('added voice channel:\n' + ConnectionID);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
 				if (args.length == 0) {
 					message.reply('you must give at least one word as argument');
 					break;
 				}
-				searchQuery = args.join(' ')
+				args = args.join(' ').split('@')
+				const searchQuery = args[0]
+				var start = 0;
+				if (!isNaN(args[1])){
+					start = +args[1]
+				} else if (args[1]) {
+					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')')
+				}
+				console.log(start)
 				const id = await getVideoId(searchQuery)
 				const url = `https://www.youtube.com/watch?v=${id}`
 				if (ytdl.validateURL(url)) {
-					console.log(url)
-					connection.play(ytdl(url, { quality: "highestaudio" }));
+					console.log(`Now playing "${url}" in ${ConnectionID}`)
+					connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} );
+					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
 				} else {
 					console.error('id and url dis not yield a valid url')
 					message.reply('that video not available')
-				}
-
-
-
-				
+				}				
 				break;
 			}
 			// soundbot leave
@@ -340,7 +341,7 @@ client.on('message', async message => {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
 						connection.disconnect();
 						removeVoiceConnection(ConnectionID);
-						console.log(VoiceChannels);
+						console.log('removed voice channel:\n' + ConnectionID);;
 					}
 					else { message.reply('you must be in the same '); }
 				}
@@ -372,6 +373,7 @@ async function getVideoId(searchQuery) {
 		auth: GetAuth(),
 		part: 'snippet',
 		maxResults: 1,
+		type: 'video',
 		q: searchQuery
 	})
 		.then(response =>  {
@@ -380,6 +382,7 @@ async function getVideoId(searchQuery) {
 				console.log('No video found.');
 				return;
 			} else {
+				console.log(video)
 				console.log('returning id:\n' + video[0].id.videoId)
 				return video[0].id.videoId; 
 			}
