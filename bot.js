@@ -4,6 +4,9 @@ var auth = require('./auth.json');
 const https = require('https');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
+var {google} = require('googleapis');
+var OAuth2 = google.auth.OAuth2;
+
 /*
 How to download
 // Find the file type and download it
@@ -14,16 +17,40 @@ const request = https.get(attachment.url, function(response) {
 });
 */
 
+// Variables and functions used to search for things on youtube
+const TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
+	process.env.USERPROFILE) + '/.credentials/';
+const TOKEN_PATH = TOKEN_DIR + 'youtube-nodejs-quickstart.json';
+
+function GetAuth() {
+	content = fs.readFileSync('client_secret.json')
+	var auth = authorize(JSON.parse(content));
+	return auth
+}
+function authorize(credentials) {
+	var clientSecret = credentials.installed.client_secret;
+	var clientId = credentials.installed.client_id;
+	var redirectUrl = credentials.installed.redirect_uris[0];
+	var oauth2Client = new OAuth2(clientId, clientSecret, redirectUrl);
+
+	oauth2Client.credentials = JSON.parse(fs.readFileSync(TOKEN_PATH))
+	return oauth2Client;
+}
+	// call this function when you need to execute other youtube commands
+	// or use it to create simpler functions (credential is SecretContent)
+
 // Extract the required classes from the required modules
 const { Client, MessageAttachment, MessageEmbed } = require('discord.js');
 const { spawn } = require('child_process');
 
 // Create an instance of a Discord client
 const client = new Client();
-let VoiceChannels = new Map();
 
 // Create some constants
 const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
+
+// Create organiser for voicechannels
+let VoiceChannels = new Map();
 
 // Adding a voice connection
 async function addVoiceConnection(message) {
@@ -208,8 +235,7 @@ client.on('message', async message => {
 			}
 			// testbot test
 			case 'test' : {
-				console.log(message.author.presence.activities[0])
-				console.log(message.author.presence.activities[0].assets.largeText)
+				console.log(GetAuth())
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -286,7 +312,24 @@ client.on('message', async message => {
 					console.log(VoiceChannels);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
-				connection.play(ytdl('https://www.youtube.com/watch?v=1gW1uHRPChc', { quality: "highestaudio" }));
+				if (args.length == 0) {
+					message.reply('you must give at least one word as argument');
+					break;
+				}
+				searchQuery = args.join(' ')
+				const id = await getVideoId(searchQuery)
+				const url = `https://www.youtube.com/watch?v=${id}`
+				if (ytdl.validateURL(url)) {
+					console.log(url)
+					connection.play(ytdl(url, { quality: "highestaudio" }));
+				} else {
+					console.error('id and url dis not yield a valid url')
+					message.reply('that video not available')
+				}
+
+
+
+				
 				break;
 			}
 			// soundbot leave
@@ -306,7 +349,6 @@ client.on('message', async message => {
 			}
 			// soundbot test
 			case 'test' : {
-				console.log(await ytdl.getInfo('https://www.youtube.com/watch?v=1gW1uHRPChc'))
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -316,3 +358,31 @@ client.on('message', async message => {
 
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
 client.login(auth.token);
+
+// Define common functions
+
+async function getVideoId(searchQuery) {
+	console.log(searchQuery)
+	if (typeof searchQuery !== 'string') {
+		console.log('search query was not a string: aborting search')
+		return; 
+	}
+	var service = google.youtube('v3');
+	var response = await service.search.list({
+		auth: GetAuth(),
+		part: 'snippet',
+		maxResults: 1,
+		q: searchQuery
+	})
+		.then(response =>  {
+			const video = response.data.items;
+			if (video.length == 0) {
+				console.log('No video found.');
+				return;
+			} else {
+				console.log('returning id:\n' + video[0].id.videoId)
+				return video[0].id.videoId; 
+			}
+		});
+	return response;
+}

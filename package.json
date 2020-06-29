@@ -15,8 +15,10 @@
     "discord.js": "^12.2.0",
     "dotenv": "^8.2.0",
     "ffmpeg-static": "^4.2.5",
+    "fs": "0.0.1-security",
     "google-auth-library": "^6.0.2",
     "googleapis": "^52.1.0",
+    "i": "^0.3.6",
     "winston": "^3.3.2",
     "ytdl-core": "^2.1.7"
   }
