@@ -286,7 +286,7 @@ client.on('message', async message => {
 					console.log(VoiceChannels);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
-				connection.play(ytdl('https://www.youtube.com/watch?v=1gW1uHRPChc', { filter: 'audioonly' }));
+				connection.play(ytdl('https://www.youtube.com/watch?v=1gW1uHRPChc', { quality: "highestaudio" }));
 				break;
 			}
 			// soundbot leave
@@ -306,8 +306,7 @@ client.on('message', async message => {
 			}
 			// soundbot test
 			case 'test' : {
-				console.log(message.author.presence.activities[0].details);
-				message.reply(`${message.author.presence.activities[0].details}`);
+				console.log(await ytdl.getInfo('https://www.youtube.com/watch?v=1gW1uHRPChc'))
 				break;
 			}
 			// Just add any case commands if you want to..
