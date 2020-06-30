@@ -322,12 +322,13 @@ client.on('message', async message => {
 					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')')
 				}
 				console.log(start)
-				const id = await getVideoId(searchQuery)
+				const [id,videoname] = await getVideoId(searchQuery);
 				const url = `https://www.youtube.com/watch?v=${id}`
 				if (ytdl.validateURL(url)) {
 					console.log(`Now playing "${url}" in ${ConnectionID}`)
 					connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} );
 					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
+					youtubeembed(id, videoname,message);
 				} else {
 					console.error('id and url dis not yield a valid url')
 					message.reply('that video not available')
@@ -385,8 +386,19 @@ async function getVideoId(searchQuery) {
 			} else {
 				console.log(video)
 				console.log('returning id:\n' + video[0].id.videoId)
-				return video[0].id.videoId; 
+				return [video[0].id.videoId, video[0].snippet.title];
 			}
 		});
 	return response;
+}
+function youtubeembed(videoid,videoname,message) {
+	const url = `https://www.youtube.com/watch?v=${videoid}`;
+
+	const embed = new MessageEmbed()
+		.setColor('#FF0000')
+		.setTitle('Youtube playing:')
+		.setThumbnail(`https://img.youtube.com/vi/${videoid}/0.jpg`)
+		.addField('Video name', videoname)
+		.addField('link:', url, true);
+	message.reply(embed);
 }
