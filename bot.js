@@ -4,8 +4,6 @@ var auth = require('./auth.json');
 const https = require('https');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
-var {google} = require('googleapis');
-var OAuth2 = google.auth.OAuth2;
 
 /*
 How to download
@@ -40,8 +38,11 @@ function authorize(credentials) {
 	// or use it to create simpler functions (credential is SecretContent)
 
 // Extract the required classes from the required modules
-const { Client, MessageAttachment, MessageEmbed } = require('discord.js');
+const { Client, MessageAttachment, MessageEmbed, StreamDispatcher} = require('discord.js');
 const { spawn } = require('child_process');
+const EventEmitter = require('events');
+var {google} = require('googleapis');
+var OAuth2 = google.auth.OAuth2;
 
 // Create an instance of a Discord client
 const client = new Client();
@@ -65,6 +66,15 @@ async function addVoiceConnection(message) {
 	ConnectionID = message.guild.id;
 	console.log(ConnectionID);
 	VoiceChannels.set(ConnectionID, info);
+
+	connection.on('speaking', async speaking => {
+		console.log('-----------------------------------------')
+		console.log(speaking)
+		console.log(this.paused)
+		console.log(this.player.voiceConnection.channel)
+		console.log(this.player.voiceConnection.channel.guild)
+		console.log('-----------------------------------------')
+	});
 }
 
 // removing a voice connection
@@ -325,12 +335,12 @@ client.on('message', async message => {
 				const id = await getVideoId(searchQuery)
 				const url = `https://www.youtube.com/watch?v=${id}`
 				if (ytdl.validateURL(url)) {
-					console.log(`Now playing "${url}" in ${ConnectionID}`)
-					connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} );
+					console.log(`Now playing "${url}" in ${ConnectionID}`);
+					VoiceChannels.get(ConnectionID).set('playing', connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
 					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
 				} else {
-					console.error('id and url dis not yield a valid url')
-					message.reply('that video not available')
+					console.error('id and url did not yield a valid url');
+					message.reply('that video not available');
 				}				
 				break;
 			}
@@ -349,6 +359,35 @@ client.on('message', async message => {
 				else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+			// soundbot pause
+			case 'pause' : {
+				let ConnectionID = message.guild.id;
+				if (VoiceChannels.has(ConnectionID)) {
+					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
+						let playing = VoiceChannels.get(ConnectionID).get('playing');
+						if (!connection.paused) {
+							console.log(connection)
+							connection.pause();
+							console.log('paused voice channel:\n' + ConnectionID);;
+						} else { message.reply('the bot is already paused') }
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
+				} else { message.reply('the bot must be running for you to use that command'); }
+				break;
+			}
+			// soundbot resume
+			case 'resume' : {
+				let ConnectionID = message.guild.id;
+				if (VoiceChannels.has(ConnectionID)) {
+					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
+						connection = VoiceChannels.get(ConnectionID).get('connection');
+						if (connection.paused) {
+							connection.resume();
+							console.log('resumed voice channel:\n' + ConnectionID);;
+						} else { message.reply('the bot is already playing')}
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
+				} else { message.reply('the bot must be running for you to use that command'); }
+				break;
+			}
 			// soundbot test
 			case 'test' : {
 				break;
@@ -357,6 +396,7 @@ client.on('message', async message => {
 		}
 	}
 });
+
 
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
 client.login(auth.token);
