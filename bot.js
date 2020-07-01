@@ -205,7 +205,6 @@ client.on('message', async message => {
 			}
 			// testbot test
 			case 'test' : {
-				
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -223,8 +222,7 @@ client.on('message', async message => {
 				message.reply('you must be in a voice channel to use that command');
 				return;
 			}
-		}
-		else {
+		} else {
 			message.reply('you must be in a voice channel to use that command');
 			return;
 		}
@@ -253,18 +251,12 @@ client.on('message', async message => {
 				if (!VoiceChannels.has(ConnectionID)){
 					await addVoiceConnection(message);
 					console.log(VoiceChannels);
-
-				}
-				else {
+				} else {
 					if ((VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
 						message.reply('I am already playing in that channel');
-					}
-					else {
-						message.reply(`I am playing in ${VoiceChannels.get(ConnectionID).get('channel')} right now`);
-					}
+					} else { message.reply(`I am playing in ${VoiceChannels.get(ConnectionID).get('channel')} right now`); }
 				console.log(VoiceChannels);
 				}
-
 				break;
 			}
 			// soundbot play
@@ -297,13 +289,15 @@ client.on('message', async message => {
 				const url = `https://www.youtube.com/watch?v=${id}`
 				if (ytdl.validateURL(url)) {
 					console.log(`Now playing "${url}" in ${ConnectionID}`);
-					VoiceChannels.get(ConnectionID).set('playing', connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
+					VoiceChannels.get(ConnectionID).set('playing', connection.play(
+						ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}),
+						{seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
 					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
 					youtubeembed(id, videoname,message);
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
-				}				
+				}
 				break;
 			}
 			// soundbot leave
@@ -314,11 +308,9 @@ client.on('message', async message => {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
 						connection.disconnect();
 						removeVoiceConnection(ConnectionID);
-						console.log('removed voice channel:\n' + ConnectionID);;
-					}
-					else { message.reply('you must be in the same '); }
-				}
-				else { message.reply('the bot must be running for you to use that command'); }
+						console.log('removed voice channel:\n' + ConnectionID);
+					} else { message.reply('you must be in the same '); }
+				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
 			// soundbot pause
@@ -328,9 +320,9 @@ client.on('message', async message => {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let playing = VoiceChannels.get(ConnectionID).get('playing');
 						if (!connection.paused) {
-							console.log(connection)
+							console.log(connection);
 							connection.pause();
-							console.log('paused voice channel:\n' + ConnectionID);;
+							console.log('paused voice channel:\n' + ConnectionID);
 						} else { message.reply('the bot is already paused') }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
@@ -344,7 +336,7 @@ client.on('message', async message => {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
 						if (connection.paused) {
 							connection.resume();
-							console.log('resumed voice channel:\n' + ConnectionID);;
+							console.log('resumed voice channel:\n' + ConnectionID);
 						} else { message.reply('the bot is already playing')}
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
@@ -366,10 +358,10 @@ client.login(auth.token);
 // Define common functions
 
 async function getVideoId(searchQuery) {
-	console.log(searchQuery)
+	console.log(searchQuery);
 	if (typeof searchQuery !== 'string') {
-		console.log('search query was not a string: aborting search')
-		return; 
+		console.log('search query was not a string: aborting search');
+		return;
 	}
 	var service = google.youtube('v3');
 	var response = await service.search.list({
@@ -377,16 +369,15 @@ async function getVideoId(searchQuery) {
 		part: 'snippet',
 		maxResults: 1,
 		type: 'video',
-		q: searchQuery
-	})
+		q: searchQuery})
 		.then(response =>  {
 			const video = response.data.items;
 			if (video.length == 0) {
 				console.log('No video found.');
 				return;
 			} else {
-				console.log(video)
-				console.log('returning id:\n' + video[0].id.videoId)
+				console.log(video);
+				console.log('returning id:\n' + video[0].id.videoId);
 				return [video[0].id.videoId, video[0].snippet.title];
 			}
 		});
