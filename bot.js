@@ -5,6 +5,8 @@ const https = require('https');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
 
+const stupidcommands = require("./scripts/stupidcommands");
+
 /*
 How to download
 // Find the file type and download it
@@ -193,58 +195,17 @@ client.on('message', async message => {
 			}
 			//testbot jslat
 			case 'jslat' : {
-				const filename = "assets/message.txt";
-
-				fs.readFile(filename, 'utf8', function(err, data) {
-					if (err) throw err;
-					const namearray = data.split(',');
-					var newslat = "";
-
-					if(args >=1){
-						for (let i = 0; i < args[0]; i++) {
-							var randomNumber = Math.floor(Math.random()*namearray.length);
-							const element = namearray[randomNumber];
-							newslat += element + "\n";
-						}
-						console.log(newslat);
-						message.reply(newslat);
-					}
-					else
-						message.reply("the first argument must be an integer larger than or equal to 1");
-				});
+				stupidcommands.Jslat(message, args);
 				break;
 			}
 			// testbot spotify
 			case 'spotify' : {
-				const spotify = message.author.presence.activities[0];
-				if(spotify.name == 'Spotify') // sikker på det er spotify vi få fat i
-				{
-					const sangnavn = spotify.details;
-					const Kunstner = spotify.state;
-					const albumnavn = message.author.presence.activities[0].assets.largeText;
-
-					const spotifybesked = new MessageEmbed()
-						.setColor('#1DB954')
-						.setTitle('Spotify')
-						.attachFiles(['assets/chr.jpg'])
-						.setThumbnail('attachment://chr.jpg')
-						//.setThumbnail('https://i.imgur.com/wSTFkRM.png') // https://x19-christian.it.slotshaven.dk/chr.jpg
-						.addFields(
-							{ name: 'Song name', value: sangnavn},
-							//{ name: '\u200B', value: '\u200B' },//Unicode Character 'ZERO WIDTH SPACE' 
-							{ name: 'Artist', value: Kunstner},
-							{ name: 'Album', value: albumnavn},
-						)
-						//.setImage(spotify.assets.largeImage) // virker ikke helt endnu
-						.addField('\u200B', '\u200B', true)
-						.setTimestamp(); // ----  slut for  spotifybesked Embed besked
-					//console.log(message.author.presence.activities[0]); // god for debuging
-					message.reply(spotifybesked); 
-				}
+				stupidcommands.spotify(message);
 				break;
 			}
 			// testbot test
 			case 'test' : {
+				
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -332,12 +293,13 @@ client.on('message', async message => {
 					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')')
 				}
 				console.log(start)
-				const id = await getVideoId(searchQuery)
+				const [id,videoname] = await getVideoId(searchQuery);
 				const url = `https://www.youtube.com/watch?v=${id}`
 				if (ytdl.validateURL(url)) {
 					console.log(`Now playing "${url}" in ${ConnectionID}`);
 					VoiceChannels.get(ConnectionID).set('playing', connection.play(ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}), {seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
 					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
+					youtubeembed(id, videoname,message);
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
@@ -425,8 +387,19 @@ async function getVideoId(searchQuery) {
 			} else {
 				console.log(video)
 				console.log('returning id:\n' + video[0].id.videoId)
-				return video[0].id.videoId; 
+				return [video[0].id.videoId, video[0].snippet.title];
 			}
 		});
 	return response;
+}
+function youtubeembed(videoid,videoname,message) {
+	const url = `https://www.youtube.com/watch?v=${videoid}`;
+
+	const embed = new MessageEmbed()
+		.setColor('#FF0000')
+		.setTitle('Youtube playing:')
+		.setThumbnail(`https://img.youtube.com/vi/${videoid}/0.jpg`)
+		.addField('Video name', videoname)
+		.addField('link:', url, true);
+	message.reply(embed);
 }
