@@ -298,7 +298,8 @@ client.on('message', async message => {
 					VoiceChannels.get(ConnectionID).set('playing', connection.play(
 						ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}),
 						{seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
-					youtubeembed(url, info, message);
+					embed = youtubeembed(url, info);
+					message.reply(embed);
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
@@ -413,6 +414,7 @@ async function getVideoId(searchQuery) {
 		});
 	return response;
 }
+
 function youtubeembed(url, videoInfo, message) {
 	const embed = new MessageEmbed()
 		.setColor('#FF0000')
@@ -420,5 +422,5 @@ function youtubeembed(url, videoInfo, message) {
 		.setThumbnail(videoInfo.thumbnail)
 		.addField('Video name', videoInfo.title)
 		.addField('link:', url, true);
-	message.reply(embed);
+	return embed;
 }
