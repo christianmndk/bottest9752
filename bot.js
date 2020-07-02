@@ -4,6 +4,7 @@ var auth = require('./auth.json');
 const https = require('https');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
+const ytsr = require('ytsr');
 
 const stupidcommands = require("./scripts/stupidcommands");
 
@@ -70,12 +71,15 @@ async function addVoiceConnection(message) {
 	VoiceChannels.set(ConnectionID, info);
 
 	connection.on('speaking', async speaking => {
-		console.log('-----------------------------------------')
-		console.log(speaking)
-		console.log(this.paused)
-		console.log(this.player.voiceConnection.channel)
-		console.log(this.player.voiceConnection.channel.guild)
-		console.log('-----------------------------------------')
+		if (!speaking) {return;}
+		if (speaking.bot) {
+			console.log('-----------------------------------------');
+			console.log(speaking);
+			console.log(this.connection.paused);
+			console.log(this.connection.player.voiceConnection.channel);
+			console.log(this.connection.player.voiceConnection.channel.guild);
+			console.log('-----------------------------------------');
+		}
 	});
 }
 
@@ -207,6 +211,10 @@ client.on('message', async message => {
 			case 'test' : {
 				break;
 			}
+			case 'guildid' : {
+				message.reply(message.guild.id)
+				break;
+			}
 			// Just add any case commands if you want to..
 		}
 	}
@@ -277,23 +285,20 @@ client.on('message', async message => {
 					break;
 				}
 				args = args.join(' ').split('@')
-				const searchQuery = args[0]
+				const searchQuery = args[0];
 				var start = 0;
 				if (!isNaN(args[1])){
-					start = +args[1]
+					start = +args[1];
 				} else if (args[1]) {
-					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')')
+					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')');
 				}
-				console.log(start)
-				const [id,videoname] = await getVideoId(searchQuery);
-				const url = `https://www.youtube.com/watch?v=${id}`
+				const [url, info] = await getVideoLink(searchQuery);
 				if (ytdl.validateURL(url)) {
 					console.log(`Now playing "${url}" in ${ConnectionID}`);
 					VoiceChannels.get(ConnectionID).set('playing', connection.play(
 						ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}),
 						{seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
-					//console.log(await ytdl.getInfo(url, {quality: "highestaudio" }))
-					youtubeembed(id, videoname,message);
+					youtubeembed(url, info, message);
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
@@ -351,18 +356,43 @@ client.on('message', async message => {
 	}
 });
 
-
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
 client.login(auth.token);
 
 // Define common functions
 
-async function getVideoId(searchQuery) {
-	console.log(searchQuery);
+async function getVideoLink(searchQuery) {
 	if (typeof searchQuery !== 'string') {
 		console.log('search query was not a string: aborting search');
-		return;
+		return; }
+
+	let filter;
+	let filters;
+
+	filters = await ytsr.getFilters(searchQuery)
+	filter = filters.get('Type').find(o => o.name === 'Video'); // extracts a youtube link that can be used to search for only videos
+	const options = {
+		limit: 1,
+		nextpageRef: filter.ref
 	}
+	var response = await ytsr(null, options)
+		.then((searchResults) => {
+		if (!searchResults.items[0]) {
+			console.log('No video found.');
+			return;
+		} else {
+			console.log(searchResults.items[0]);
+			console.log('returning url:\n' + searchResults.items[0].link);
+			return [searchResults.items[0].link, searchResults.items[0]];
+		}
+		});
+	return response;
+}
+
+
+async function getVideoId(searchQuery) {
+	console.log(searchQuery);
+	
 	var service = google.youtube('v3');
 	var response = await service.search.list({
 		auth: GetAuth(),
@@ -383,14 +413,12 @@ async function getVideoId(searchQuery) {
 		});
 	return response;
 }
-function youtubeembed(videoid,videoname,message) {
-	const url = `https://www.youtube.com/watch?v=${videoid}`;
-
+function youtubeembed(url, videoInfo, message) {
 	const embed = new MessageEmbed()
 		.setColor('#FF0000')
 		.setTitle('Youtube playing:')
-		.setThumbnail(`https://img.youtube.com/vi/${videoid}/0.jpg`)
-		.addField('Video name', videoname)
+		.setThumbnail(videoInfo.thumbnail)
+		.addField('Video name', videoInfo.title)
 		.addField('link:', url, true);
 	message.reply(embed);
 }
