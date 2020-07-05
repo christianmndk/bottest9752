@@ -51,7 +51,7 @@ var OAuth2 = google.auth.OAuth2;
 const client = new Client();
 
 // Create some constants
-const ffmpegFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
+const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
 
 // Create organiser for voicechannels
 let VoiceChannels = new Map();
@@ -62,10 +62,12 @@ async function addVoiceConnection(message) {
 	var info = new Map();
 	info.set('playing', '');
 	info.set('queue', '');
+	info.set('ended', true)
 	info.set('id', message.member.voice.channel.id);
 	info.set('guild', message.guild.id);
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
+	
 	ConnectionID = message.guild.id;
 	console.log(ConnectionID);
 	VoiceChannels.set(ConnectionID, info);
@@ -160,8 +162,13 @@ client.on('message', async message => {
 			case 'convert' : {
 				var name;
 				// check for new file type
-				if (args.length == 0) { message.channel.send(`${message.author}, you need to provide a new file type for the file`); return; }
-				else if (!ffmpegFormats.includes(args[0])) {message.channel.send(`${message.author}, the first argument must be a valid file extension like mp4`); return;}
+				if (args.length == 0) { 
+					message.channel.send(`${message.author}, you need to provide a new file type for the file`); 
+					return; 
+				} else if (!ffmpegVideoFormats.includes(args[0])) 
+					{message.channel.send(`${message.author}, the first argument must be a valid file extension like mp4`); 
+					return;
+				}
 				// check if user made a new name otherwise give it the old name
 				if (args.length > 1 && typeof args[1] === 'string') {
 					if (args[1].includes('.')) {message.reply('the second argument must be a name which does NOT include a \'.\'. Continuing with standart name')}
@@ -211,16 +218,11 @@ client.on('message', async message => {
 			case 'test' : {
 				break;
 			}
-			case 'guildid' : {
-				message.reply(message.guild.id)
-				break;
-			}
 			// Just add any case commands if you want to..
 		}
 	}
 
 	// Voice channel commands
-
 	// If the message is starts with soundbot and author is not a bot
 	else if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot ) {
 		console.log('recieved voice command');
@@ -281,7 +283,7 @@ client.on('message', async message => {
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
 				if (args.length == 0) {
-					message.reply('you must give at least one word as argument');
+					message.reply('you must give at least one word as an argument to search for a video');
 					break;
 				}
 				args = args.join(' ').split('@')
@@ -295,11 +297,27 @@ client.on('message', async message => {
 				const [url, info] = await getVideoLink(searchQuery);
 				if (ytdl.validateURL(url)) {
 					console.log(`Now playing "${url}" in ${ConnectionID}`);
-					VoiceChannels.get(ConnectionID).set('playing', connection.play(
-						ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'}),
-						{seek: start, volume: false, StreamType: 'converted', bitrate: 120} ));
-					embed = youtubeembed(url, info);
+					const stream = ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'});
+					const audio = connection.play(
+						stream, 
+						{seek: start, volume: false, StreamType: 'converted', bitrate: 120} 
+					);
+					VoiceChannels.get(ConnectionID).set('playing', audio);
+					VoiceChannels.get(ConnectionID).set('ended', false);
+					embed = youtubeEmbed(url, info);
 					message.reply(embed);
+
+					stream.on('end', async function () {
+						VoiceChannels.get(ConnectionID).set('ended', true)
+					});
+
+					audio.on('speaking', async speaking => {
+						if (!speaking && VoiceChannels.get(ConnectionID).get('ended')) {
+							message.reply('the song is now over')
+							VoiceChannels.get(ConnectionID).set('playing', false);
+						}
+					});
+
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
@@ -324,10 +342,10 @@ client.on('message', async message => {
 				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						let playing = VoiceChannels.get(ConnectionID).get('playing');
-						if (!connection.paused) {
-							console.log(connection);
-							connection.pause();
+						let audio = VoiceChannels.get(ConnectionID).get('playing');
+						if (!audio.paused) {
+							console.log(audio);
+							audio.pause();
 							console.log('paused voice channel:\n' + ConnectionID);
 						} else { message.reply('the bot is already paused') }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
@@ -336,14 +354,15 @@ client.on('message', async message => {
 			}
 			// soundbot resume
 			case 'resume' : {
+				console.log('resuming')
 				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						connection = VoiceChannels.get(ConnectionID).get('connection');
-						if (connection.paused) {
-							connection.resume();
+						let audio = VoiceChannels.get(ConnectionID).get('playing');
+						if (audio.paused) {
+							audio.resume();
 							console.log('resumed voice channel:\n' + ConnectionID);
-						} else { message.reply('the bot is already playing')}
+						} else { message.reply('the bot is already playing'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
@@ -415,7 +434,7 @@ async function getVideoId(searchQuery) {
 	return response;
 }
 
-function youtubeembed(url, videoInfo, message) {
+function youtubeEmbed(url, videoInfo) {
 	const embed = new MessageEmbed()
 		.setColor('#FF0000')
 		.setTitle('Youtube playing:')
