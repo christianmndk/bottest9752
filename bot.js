@@ -41,7 +41,7 @@ function authorize(credentials) {
 	// or use it to create simpler functions (credential is SecretContent)
 
 // Extract the required classes from the required modules
-const { Client, MessageAttachment, MessageEmbed, StreamDispatcher} = require('discord.js');
+const { Client, MessageAttachment, MessageEmbed, Collection} = require('discord.js');
 const { spawn } = require('child_process');
 const EventEmitter = require('events');
 var {google} = require('googleapis');
@@ -61,7 +61,7 @@ async function addVoiceConnection(message) {
 	const connection = await message.member.voice.channel.join();
 	var info = new Map();
 	info.set('playing', '');
-	info.set('queue', '');
+	info.set('queue', new Array());
 	info.set('ended', true)
 	info.set('id', message.member.voice.channel.id);
 	info.set('guild', message.guild.id);
@@ -282,6 +282,7 @@ client.on('message', async message => {
 					console.log('added voice channel:\n' + ConnectionID);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
+				var soundChannel = VoiceChannels.get(ConnectionID)
 				if (args.length == 0) {
 					message.reply('you must give at least one word as an argument to search for a video');
 					break;
@@ -296,28 +297,39 @@ client.on('message', async message => {
 				}
 				const [url, info] = await getVideoLink(searchQuery);
 				if (ytdl.validateURL(url)) {
+					if (soundChannel.get('playing')) {
+						queue(ConnectionID, url, info, start, message.channel)
+						console.log(`Queued "${url}" in ${ConnectionID}`)
+						message.reply('your song is now queued')
+						return;
+					} else {
+					playMusic(ConnectionID, url, info, start, message.channel)
+					}
+					/* 
 					console.log(`Now playing "${url}" in ${ConnectionID}`);
 					const stream = ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'});
 					const audio = connection.play(
 						stream, 
-						{seek: start, volume: false, StreamType: 'converted', bitrate: 120} 
+						{seek: start, volume: false, StreamType: 'converted'} 
 					);
-					VoiceChannels.get(ConnectionID).set('playing', audio);
-					VoiceChannels.get(ConnectionID).set('ended', false);
+					soundChannel.set('playing', audio);
+					soundChannel.set('ended', false);
 					embed = youtubeEmbed(url, info);
 					message.reply(embed);
 
 					stream.on('end', async function () {
-						VoiceChannels.get(ConnectionID).set('ended', true)
+						soundChannel.set('ended', true);
+						console.log('Consumed file');
 					});
 
 					audio.on('speaking', async speaking => {
-						if (!speaking && VoiceChannels.get(ConnectionID).get('ended')) {
-							message.reply('the song is now over')
-							VoiceChannels.get(ConnectionID).set('playing', false);
+						if (!speaking && soundChannel.get('ended')) {
+							console.log('Song stopped playing');
+							message.reply('the song is now over');
+							soundChannel.set('playing', false);
 						}
 					});
-
+				 */
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
@@ -333,7 +345,7 @@ client.on('message', async message => {
 						connection.disconnect();
 						removeVoiceConnection(ConnectionID);
 						console.log('removed voice channel:\n' + ConnectionID);
-					} else { message.reply('you must be in the same '); }
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
@@ -343,26 +355,29 @@ client.on('message', async message => {
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let audio = VoiceChannels.get(ConnectionID).get('playing');
-						if (!audio.paused) {
-							console.log(audio);
-							audio.pause();
-							console.log('paused voice channel:\n' + ConnectionID);
-						} else { message.reply('the bot is already paused') }
+						if (audio) {
+							if (!audio.paused) {
+								console.log(audio);
+								audio.pause();
+								console.log('paused voice channel:\n' + ConnectionID);
+							} else { message.reply('the bot is already paused'); }
+						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
 			// soundbot resume
 			case 'resume' : {
-				console.log('resuming')
 				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let audio = VoiceChannels.get(ConnectionID).get('playing');
-						if (audio.paused) {
-							audio.resume();
-							console.log('resumed voice channel:\n' + ConnectionID);
-						} else { message.reply('the bot is already playing'); }
+						if (audio) {
+							if (audio.paused) {
+								audio.resume();
+								console.log('resumed voice channel:\n' + ConnectionID);
+							} else { message.reply('the bot is already playing'); }
+						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
@@ -380,6 +395,51 @@ client.on('message', async message => {
 client.login(auth.token);
 
 // Define common functions
+
+function queue(ConnectionID, url, info, start, channel) {
+	let soundChannel = VoiceChannels.get(ConnectionID);
+	let queueItem = new Collection();
+	queueItem.set('url', url)
+	queueItem.set('info', info)
+	queueItem.set('start', start)
+	queueItem.set('channel', channel)
+
+	soundChannel.get('queue').push(queueItem)
+}
+
+function playMusic(ConnectionID, url, info, start, channel) {
+
+	connection = VoiceChannels.get(ConnectionID).get('connection');
+	let soundChannel = VoiceChannels.get(ConnectionID);
+	
+	console.log(`Now playing "${url}" in ${ConnectionID}`);
+	const stream = ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'});
+	const audio = connection.play(
+		stream, 
+		{seek: start, volume: false, StreamType: 'converted'} 
+	);
+	soundChannel.set('playing', audio);
+	soundChannel.set('ended', false);
+	embed = youtubeEmbed(url, info);
+	channel.send(embed);
+
+	stream.on('end', async function () {
+		soundChannel.set('ended', true);
+		console.log('Consumed file');
+	});
+
+	audio.on('speaking', async speaking => {
+		if (!speaking && soundChannel.get('ended')) {
+			console.log('Song stopped playing');
+			//message.reply('the song is now over');
+			soundChannel.set('playing', false);
+			let nextSongInfo = soundChannel.get('queue').shift()
+			if (nextSongInfo) {
+				playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+			} else (channel.send('The music queue is now empty'))
+		}
+	});
+}
 
 async function getVideoLink(searchQuery) {
 	if (typeof searchQuery !== 'string') {
@@ -408,7 +468,6 @@ async function getVideoLink(searchQuery) {
 		});
 	return response;
 }
-
 
 async function getVideoId(searchQuery) {
 	console.log(searchQuery);
