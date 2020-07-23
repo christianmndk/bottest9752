@@ -287,31 +287,6 @@ client.on('message', async message => {
 					} else {
 					playMusic(ConnectionID, url, info, start, message.channel)
 					}
-					/* 
-					console.log(`Now playing "${url}" in ${ConnectionID}`);
-					const stream = ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'});
-					const audio = connection.play(
-						stream, 
-						{seek: start, volume: false, StreamType: 'converted'} 
-					);
-					soundChannel.set('playing', audio);
-					soundChannel.set('ended', false);
-					embed = youtubeEmbed(url, info);
-					message.reply(embed);
-
-					stream.on('end', async function () {
-						soundChannel.set('ended', true);
-						console.log('Consumed file');
-					});
-
-					audio.on('speaking', async speaking => {
-						if (!speaking && soundChannel.get('ended')) {
-							console.log('Song stopped playing');
-							message.reply('the song is now over');
-							soundChannel.set('playing', false);
-						}
-					});
-				 */
 				} else {
 					console.error('id and url did not yield a valid url');
 					message.reply('that video not available');
