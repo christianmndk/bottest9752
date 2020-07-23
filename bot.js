@@ -241,14 +241,6 @@ client.on('message', async message => {
 		args = args.splice(1);
 
 		switch(cmd) {
-			// soundbot rip
-			case 'rip': {
-				// Create the attachment using MessageAttaSchment
-				attachment = new MessageAttachment('https://i.imgur.com/w3duR07.png');
-				// Send the attachment in the message channel with a content
-				message.channel.send(`${message.author},`, attachment);
-				break;
-			}
 			// soundbot ping
 			case 'ping': {
 				message.channel.send(`${message.author}, pong!`);
