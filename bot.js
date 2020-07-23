@@ -72,17 +72,7 @@ async function addVoiceConnection(message) {
 	console.log(ConnectionID);
 	VoiceChannels.set(ConnectionID, info);
 
-	connection.on('speaking', async speaking => {
-		if (!speaking) {return;}
-		if (speaking.bot) {
-			console.log('-----------------------------------------');
-			console.log(speaking);
-			console.log(this.connection.paused);
-			console.log(this.connection.player.voiceConnection.channel);
-			console.log(this.connection.player.voiceConnection.channel.guild);
-			console.log('-----------------------------------------');
-		}
-	});
+	//connection.on('speaking', async speaking => {});
 }
 
 // removing a voice connection
