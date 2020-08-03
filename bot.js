@@ -339,8 +339,41 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+			// soundbot skip
+			case 'skip' : {
+				let ConnectionID = message.guild.id;
+				let soundChannel = VoiceChannels.get(ConnectionID);
+				if (VoiceChannels.has(ConnectionID)) {
+					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
+						if(VoiceChannels.get(ConnectionID).get('queue').length > 0){
+							let nextsong = soundChannel.get('queue').shift();
+							
+							playMusic(ConnectionID, nextsong.get('url'), nextsong.get('info'), nextsong.get('start'), nextsong.get('channel'))
+						} else { message.reply('The queue must be empty :grimacing:'); }
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
+				} else { message.reply('the bot must be running for you to use that command'); }
+				break;
+			}
+			case 'queue' : {
+				let ConnectionID = message.guild.id;
+				let soundChannel = VoiceChannels.get(ConnectionID);
+				//const embed = new MessageEmbed()
+				//	.setColor('#FF0000')
+				//	.setTitle('Queue:');
+				//embed.addField('');
+				//message.reply(embed);
+				//voicechannels.get(ConnectionID).get('queue').forEach(song => embed.addField());
+				voicechannels.get(ConnectionID).get('queue').forEach(song => console.log(song.get('info')));
+				//console.log(VoiceChannels.get(ConnectionID.get('queue')));
+				break;
+			}
 			// soundbot test
 			case 'test' : {
+				let ConnectionID = message.guild.id;
+				console.log(VoiceChannels.get(ConnectionID).get('queue'));
+
+				console.log(VoiceChannels.get(ConnectionID).get('queue').length);
+				//console.log(VoiceChannels.get(ConnectionID.get('queue')));
 				break;
 			}
 			// Just add any case commands if you want to..
