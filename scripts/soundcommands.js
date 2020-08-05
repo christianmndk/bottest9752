@@ -99,10 +99,8 @@ module.exports = {
 			message.reply('that video not available');
 		}
 	},
-	addtoqueue: (message, args) =>{
-		
+	addtoqueue: (message, args) =>{	
 	}
-	
 };
 
 async function getVideoLink(searchQuery) {
@@ -132,8 +130,6 @@ async function getVideoLink(searchQuery) {
 		});
 	return response;
 }
-
-// Define common functions
 
 async function getVideoId(searchQuery) {
 	console.log(searchQuery);

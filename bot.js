@@ -357,23 +357,18 @@ client.on('message', async message => {
 			case 'queue' : {
 				let ConnectionID = message.guild.id;
 				let soundChannel = VoiceChannels.get(ConnectionID);
-				//const embed = new MessageEmbed()
-				//	.setColor('#FF0000')
-				//	.setTitle('Queue:');
-				//embed.addField('');
-				//message.reply(embed);
-				//voicechannels.get(ConnectionID).get('queue').forEach(song => embed.addField());
-				voicechannels.get(ConnectionID).get('queue').forEach(song => console.log(song.get('info')));
-				//console.log(VoiceChannels.get(ConnectionID.get('queue')));
+				let embed = new MessageEmbed()
+					.setColor('#FF0000')
+					.setTitle('Queue:');
+				soundChannel.get('queue').forEach(song => {
+					embed.addField(song.get('info').title, song.get('url'));
+				});
+				message.channel.send(embed);
 				break;
 			}
 			// soundbot test
 			case 'test' : {
-				let ConnectionID = message.guild.id;
-				console.log(VoiceChannels.get(ConnectionID).get('queue'));
-
-				console.log(VoiceChannels.get(ConnectionID).get('queue').length);
-				//console.log(VoiceChannels.get(ConnectionID.get('queue')));
+				message.reply(test)
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -421,7 +416,6 @@ function playMusic(ConnectionID, url, info, start, channel) {
 	audio.on('speaking', async speaking => {
 		if (!speaking && soundChannel.get('ended')) {
 			console.log('Song stopped playing');
-			//message.reply('the song is now over');
 			soundChannel.set('playing', false);
 			let nextSongInfo = soundChannel.get('queue').shift()
 			if (nextSongInfo) {
