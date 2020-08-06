@@ -28,6 +28,7 @@ function GetAuth() {
 	var auth = authorize(JSON.parse(content));
 	return auth;
 }
+
 function authorize(credentials) {
 	var clientSecret = credentials.installed.client_secret;
 	var clientId = credentials.installed.client_id;
@@ -391,7 +392,6 @@ client.on('message', async message => {
 					});
 					message.channel.send(embed);
 				} else ( message.reply('the queue is empty'))
-				
 				break;
 			}
 			// soundbot test
