@@ -101,10 +101,13 @@ process.on('SIGINT', function() {
 	
 	// add stuff here
 	// makes the bot leave from all channels
+	// does not work
+	/*
 	console.log(VoiceChannels)
 	for (let soundChannel of VoiceChannels.values()) {
 		soundChannel.get('eventHandler').emit('Shutdown');
 	}
+	*/
 	// exit when we are done
 	process.exit();
 });
