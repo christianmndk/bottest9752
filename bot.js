@@ -62,15 +62,20 @@ async function addVoiceConnection(message) {
 	var info = new Map();
 	info.set('playing', '');
 	info.set('queue', new Array());
-	info.set('ended', true)
+	info.set('ended', true);
 	info.set('id', message.member.voice.channel.id);
 	info.set('guild', message.guild.id);
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
-	
+	info.set('eventHandler', new EventEmitter());
+
 	ConnectionID = message.guild.id;
 	console.log(ConnectionID);
 	VoiceChannels.set(ConnectionID, info);
+
+	info.get('eventHandler').on('SongOver', function PlayNextSong(nextSongInfo) { 
+		playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+	})
 
 	//connection.on('speaking', async speaking => {});
 }
@@ -354,6 +359,7 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+			// soundbot queue
 			case 'queue' : {
 				let ConnectionID = message.guild.id;
 				let soundChannel = VoiceChannels.get(ConnectionID);
@@ -419,7 +425,8 @@ function playMusic(ConnectionID, url, info, start, channel) {
 			soundChannel.set('playing', false);
 			let nextSongInfo = soundChannel.get('queue').shift()
 			if (nextSongInfo) {
-				playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+				soundChannel.get('eventHandler').emit('SongOver', nextSongInfo)
+				//playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
 			} else (channel.send('The music queue is now empty'))
 		}
 	});
