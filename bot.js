@@ -76,6 +76,11 @@ async function addVoiceConnection(message) {
 	info.get('eventHandler').on('SongOver', function PlayNextSong(nextSongInfo) { 
 		playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
 	})
+	info.get('eventHandler').on('Shutdown', function disconnectShutdown() { 
+		info.get('connection').disconnect();
+		removeVoiceConnection(info.get('guild'));
+		console.log('removed voice channel: ' + info.get('guild'));
+	});
 
 	//connection.on('speaking', async speaking => {});
 }
@@ -93,8 +98,13 @@ client.on('ready', () => {
 // is run when node js is stopped using CTRL-c
 process.on('SIGINT', function() {
 	console.log('Caught interrupt signal');
+	
 	// add stuff here
-
+	// makes the bot leave from all channels
+	console.log(VoiceChannels)
+	for (let soundChannel of VoiceChannels.values()) {
+		soundChannel.get('eventHandler').emit('Shutdown');
+	}
 	// exit when we are done
 	process.exit();
 });
@@ -269,14 +279,14 @@ client.on('message', async message => {
 					console.log('added voice channel:\n' + ConnectionID);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
-				var soundChannel = VoiceChannels.get(ConnectionID)
+				let soundChannel = VoiceChannels.get(ConnectionID)
 				if (args.length == 0) {
 					message.reply('you must give at least one word as an argument to search for a video');
 					break;
 				}
 				args = args.join(' ').split('@')
 				const searchQuery = args[0];
-				var start = 0;
+				let start = 0;
 				if (!isNaN(args[1])){
 					start = +args[1];
 				} else if (args[1]) {
@@ -285,9 +295,9 @@ client.on('message', async message => {
 				const [url, info] = await getVideoLink(searchQuery);
 				if (ytdl.validateURL(url)) {
 					if (soundChannel.get('playing')) {
-						queue(ConnectionID, url, info, start, message.channel)
-						console.log(`Queued "${url}" in ${ConnectionID}`)
-						message.reply('your song is now queued')
+						queue(ConnectionID, url, info, start, message.channel);
+						console.log(`Queued "${url}" in ${ConnectionID}`);
+						message.reply('your song is now queued');
 						return;
 					} else {
 					playMusic(ConnectionID, url, info, start, message.channel)
@@ -306,7 +316,7 @@ client.on('message', async message => {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
 						connection.disconnect();
 						removeVoiceConnection(ConnectionID);
-						console.log('removed voice channel:\n' + ConnectionID);
+						console.log('removed voice channel: ' + ConnectionID);
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
@@ -321,7 +331,7 @@ client.on('message', async message => {
 							if (!audio.paused) {
 								console.log(audio);
 								audio.pause();
-								console.log('paused voice channel:\n' + ConnectionID);
+								console.log('paused voice channel: ' + ConnectionID);
 							} else { message.reply('the bot is already paused'); }
 						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
@@ -337,7 +347,7 @@ client.on('message', async message => {
 						if (audio) {
 							if (audio.paused) {
 								audio.resume();
-								console.log('resumed voice channel:\n' + ConnectionID);
+								console.log('resumed voice channel: ' + ConnectionID);
 							} else { message.reply('the bot is already playing'); }
 						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
@@ -350,11 +360,17 @@ client.on('message', async message => {
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						if(VoiceChannels.get(ConnectionID).get('queue').length > 0){
-							let nextsong = soundChannel.get('queue').shift();
-							
-							playMusic(ConnectionID, nextsong.get('url'), nextsong.get('info'), nextsong.get('start'), nextsong.get('channel'))
-						} else { message.reply('The queue must be empty :grimacing:'); }
+						let audio = VoiceChannels.get(ConnectionID).get('playing');
+						if (audio) {
+							if(VoiceChannels.get(ConnectionID).get('queue').length > 0){
+								let nextsong = soundChannel.get('queue').shift();
+								playMusic(ConnectionID, nextsong.get('url'), nextsong.get('info'), nextsong.get('start'), nextsong.get('channel'))
+							} else { 
+								connection.play('');
+								soundChannel.set('playing', false);
+								soundChannel.set('ended', true);
+							 }
+						} else { message.reply('nothing is playing right now') ;}
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
@@ -363,18 +379,21 @@ client.on('message', async message => {
 			case 'queue' : {
 				let ConnectionID = message.guild.id;
 				let soundChannel = VoiceChannels.get(ConnectionID);
-				let embed = new MessageEmbed()
-					.setColor('#FF0000')
-					.setTitle('Queue:');
-				soundChannel.get('queue').forEach(song => {
-					embed.addField(song.get('info').title, song.get('url'));
-				});
-				message.channel.send(embed);
+				if (soundChannel.get('queue').length > 0) {
+					let embed = new MessageEmbed()
+						.setColor('#FF0000')
+						.setTitle('Queue:');
+					soundChannel.get('queue').forEach(song => {
+						embed.addField(song.get('info').title, song.get('url'));
+					});
+					message.channel.send(embed);
+				} else ( message.reply('the queue is empty'))
+				
 				break;
 			}
 			// soundbot test
 			case 'test' : {
-				message.reply(test)
+				message.reply(test);
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -390,12 +409,12 @@ client.login(auth.token);
 function queue(ConnectionID, url, info, start, channel) {
 	let soundChannel = VoiceChannels.get(ConnectionID);
 	let queueItem = new Collection();
-	queueItem.set('url', url)
-	queueItem.set('info', info)
-	queueItem.set('start', start)
-	queueItem.set('channel', channel)
+	queueItem.set('url', url);
+	queueItem.set('info', info);
+	queueItem.set('start', start);
+	queueItem.set('channel', channel);
 
-	soundChannel.get('queue').push(queueItem)
+	soundChannel.get('queue').push(queueItem);
 }
 
 function playMusic(ConnectionID, url, info, start, channel) {
@@ -423,10 +442,9 @@ function playMusic(ConnectionID, url, info, start, channel) {
 		if (!speaking && soundChannel.get('ended')) {
 			console.log('Song stopped playing');
 			soundChannel.set('playing', false);
-			let nextSongInfo = soundChannel.get('queue').shift()
+			let nextSongInfo = soundChannel.get('queue').shift();
 			if (nextSongInfo) {
-				soundChannel.get('eventHandler').emit('SongOver', nextSongInfo)
-				//playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+				soundChannel.get('eventHandler').emit('SongOver', nextSongInfo);
 			} else (channel.send('The music queue is now empty'))
 		}
 	});
