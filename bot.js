@@ -38,6 +38,7 @@ function authorize(credentials) {
 	oauth2Client.credentials = JSON.parse(fs.readFileSync(TOKEN_PATH))
 	return oauth2Client;
 }
+
 	// call this function when you need to execute other youtube commands
 	// or use it to create simpler functions (credential is SecretContent)
 
@@ -370,6 +371,7 @@ client.on('message', async message => {
 								let nextsong = soundChannel.get('queue').shift();
 								playMusic(ConnectionID, nextsong.get('url'), nextsong.get('info'), nextsong.get('start'), nextsong.get('channel'))
 							} else { 
+								connection = soundChannel.get('connection')
 								connection.play('');
 								soundChannel.set('playing', false);
 								soundChannel.set('ended', true);
@@ -396,6 +398,8 @@ client.on('message', async message => {
 			}
 			// soundbot test
 			case 'test' : {
+				let ConnectionID = message.guild.id;
+				let soundChannel = VoiceChannels.get(ConnectionID);
 				message.reply(test);
 				break;
 			}
@@ -422,20 +426,20 @@ function queue(ConnectionID, url, info, start, channel) {
 
 function playMusic(ConnectionID, url, info, start, channel) {
 
-	connection = VoiceChannels.get(ConnectionID).get('connection');
 	let soundChannel = VoiceChannels.get(ConnectionID);
+	connection = soundChannel.get('connection');
 	
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
-	const stream = ytdl(url, { quality: "highestaudio", filter: format => format.container === 'mp4'});
+	const stream = ytdl(url, { quality: "highestaudio", highWaterMark: 12});
 	const audio = connection.play(
 		stream, 
-		{seek: start, volume: false, StreamType: 'converted'} 
+		{seek: start, volume: false, StreamType: 'converted', highWaterMark: 12} 
 	);
 	soundChannel.set('playing', audio);
 	soundChannel.set('ended', false);
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
-
+	
 	stream.on('end', async function () {
 		soundChannel.set('ended', true);
 		console.log('Consumed file');
