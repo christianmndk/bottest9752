@@ -1,3 +1,13 @@
+/*
+Things that can be improved:
+play function should download the currently playing song, but strean it until its done, when its done downloading all commands should be used on
+	the downloaded song for faster reaction eg. seek
+
+Make convert function look for latest picture or video based on which format it is trying to convert to
+Make conver function argument to look further back than the latest attachemt eg. the second to last attachment
+...
+*/
+
 var auth = require('./auth.json');
 
 // used so the bot can download things
@@ -54,6 +64,9 @@ const client = new Client();
 
 // Create some constants
 const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
+const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp']
+// Only for raw image files that can be converted to something else
+const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2']
 
 // Create organiser for voicechannels
 let VoiceChannels = new Map();
@@ -170,43 +183,57 @@ client.on('message', async message => {
 			}
 			// testbot convert
 			case 'convert' : {
-				var name;
+				let name;
+				let isVideo;
 				// check for new file type
 				if (args.length == 0) { 
-					message.channel.send(`${message.author}, you need to provide a new file type for the file`); 
+					message.reply('you need to provide a new file type for the file'); 
 					return; 
-				} else if (!ffmpegVideoFormats.includes(args[0])) 
-					{message.channel.send(`${message.author}, the first argument must be a valid file extension like mp4`); 
+				} else if (ffmpegVideoFormats.includes(args[0])) { isVideo = true;
+				} else if (ffmpegPictureFormats.includes(args[0])) { isVideo = false;
+				} else { 
+					message.reply('the first argument must be a valid file extension like mp4 or jpg'); 
 					return;
 				}
 				// check if user made a new name otherwise give it the old name
 				if (args.length > 1 && typeof args[1] === 'string') {
-					if (args[1].includes('.')) {message.reply('the second argument must be a name which does NOT include a \'.\'. Continuing with standart name')}
-					else { name = args[1] + '.' + args[0] }
+					name = args[1] + '.' + args[0];
 				}
 				// get the latest file
 				message.channel.messages.fetch({ limit: 10 })
 					.then(messages => {return messages.filter(m => m.attachments.first() && !m.author.bot);})
-					.then(messages => {
-						//if (typeof messages.first() === 'undefined') {message.reply('found no pictures 10 messages back, aborting');}
-						if (!messages.first()) {message.reply('found no pictures 10 messages back, aborting');}
+					.then(messages => { 
+						if (!messages.first()) {message.reply('found no pictures or images 10 messages back, aborting');}
 						else {
 							messages.first().attachments.each(attachment => {
+								// Check for matching file type
+								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length-1].toLowerCase()
+								if ((ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension)) && isVideo) {
+									message.reply('the latest attachment was a picture and you tried to convert it into a video, aborting');
+									return;
+								} else if (ffmpegVideoFormats.includes(originalFileExtension) && !isVideo ) {
+									message.reply('the latest attachment was a video and you tried to convert it into a picture, aborting');
+									return;
+								} else if (!(ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension) || ffmpegVideoFormats.includes(originalFileExtension))) {
+									message.reply('uploaded filetype is not supported');
+								}
 								// check for name
-								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join() + '.' + args[0]}
+								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join('.') + args[0];}
 								// convert the file
-								var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', 'file.' + args[0]])
-								console.log(name)
+								let file = `./${name}`
+								var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name])
+								
 								ffmpeg.on('close', code => {
 									if (code == 0) {
 										console.log(attachment.url);
 										console.log('Sending converted');
-										Converted = new MessageAttachment('./file.' + args[0], name);
-										message.reply(Converted).then(fs.unlink('./file.' + args[0], er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error('An error occurred and was caught:\n', er));
+										Converted = new MessageAttachment(file, name);
+										message.reply(Converted).then(fs.unlink(file, er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error('An error occurred and was caught:\n', er));
 									}
 									else {
 										console.log('ffmpeg failed during conversion');
 										message.reply(attachment.name + 'could not be converted because an error happened during conversion');
+										fs.unlink(file, er => { if (er) {console.error('An error occurred:\n', er)} }).catch(er => console.error('An error occurred and was caught:\n', er));
 									}
 								});
 							});
