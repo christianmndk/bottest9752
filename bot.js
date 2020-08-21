@@ -108,23 +108,22 @@ function removeVoiceConnection(ConnectionID) {
 // notify us when the bot is ready
 client.on('ready', () => {
 	console.log('I am ready!');
-  });
+	fs.mkdir(__dirname + '\\songs', {recursive: false} ,(err) =>  { 
+		if (err) { console.log('error when creating song folder: ' + err) };
+	});
+});
 
 // is run when node js is stopped using CTRL-c
 process.on('SIGINT', function() {
 	console.log('Caught interrupt signal');
 	
 	// add stuff here
-	// makes the bot leave from all channels
-	// does not work
-	/*
-	console.log(VoiceChannels)
-	for (let soundChannel of VoiceChannels.values()) {
-		soundChannel.get('eventHandler').emit('Shutdown');
-	}
-	*/
-	// exit when we are done
-	process.exit();
+	let deleteSongs = spawn('powershell', ['-c', 'Remove-Item -Recurse -Force ' + __dirname + '\\songs']);
+	deleteSongs.on('close', code => {
+		console.log(code);
+		process.exit();
+	})
+	
 });
 
 client.on('message', async message => {
@@ -221,7 +220,7 @@ client.on('message', async message => {
 								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join('.') + args[0];}
 								// convert the file
 								let file = `./${name}`
-								var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name])
+								let ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name])
 								
 								ffmpeg.on('close', code => {
 									if (code == 0) {
@@ -253,6 +252,27 @@ client.on('message', async message => {
 			}
 			// testbot test
 			case 'test' : {
+				/* https.get('https://www.youtube.com/watch?v=HyeIaosplcw', (test) => {
+					console.log(test)
+				}); */
+				let fileName = __dirname + '\\' + message.guild.id;
+				// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
+				let ytdl = spawn('youtube-dl', ['https://www.youtube.com/watch?v=HyeIaosplcw', '-x', '-o', fileName + '.%(ext)s']);
+				ytdl.on('close', code => {
+					if (code == 0) {
+						console.log('all good');
+						connection = VoiceChannels.get(message.guild.id).get('connection');
+						console.log(fileName)
+						const stream = fileName + '.opus'
+						const audio = connection.play(
+							stream, 
+							{volume: false, StreamType: 'converted', highWaterMark: 12} 
+						);
+					} else {
+						console.log('ytdl exited with error code: ' + code)
+						fs.unlink('fileName', err => { if (err) {console.error('An error occurred:\n', err)} })
+					}
+				});
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -391,12 +411,14 @@ client.on('message', async message => {
 				let ConnectionID = message.guild.id;
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (VoiceChannels.has(ConnectionID)) {
-					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						let audio = VoiceChannels.get(ConnectionID).get('playing');
+					if (soundChannel.get('id') == message.member.voice.channel.id) {
+						let audio = soundChannel.get('playing');
 						if (audio) {
-							if(VoiceChannels.get(ConnectionID).get('queue').length > 0){
-								let nextsong = soundChannel.get('queue').shift();
-								playMusic(ConnectionID, nextsong.get('url'), nextsong.get('info'), nextsong.get('start'), nextsong.get('channel'))
+							if(soundChannel.get('queue').length > 0){
+								soundChannel.set('playing', false);
+								let nextSongInfo = soundChannel.get('queue').shift();
+								soundChannel.get('eventHandler').emit('SongOver', nextSongInfo);
+
 							} else { 
 								connection = soundChannel.get('connection')
 								connection.play('');
@@ -421,6 +443,30 @@ client.on('message', async message => {
 					});
 					message.channel.send(embed);
 				} else ( message.reply('the queue is empty'))
+				break;
+			}
+			case 'seek' : {
+
+				if (!isNaN(args[0])){
+					start = +args[0];
+				} else {
+					message.reply('you must suply a number after seek');
+					break;
+				}
+
+				const ConnectionID = message.guild.id;
+				if (VoiceChannels.has(ConnectionID)) {
+					const soundChannel = VoiceChannels.get(ConnectionID);
+					if (soundChannel.get('id') == message.member.voice.channel.id) {
+						const playing = soundChannel.get('playing');
+						if (playing) {
+
+							const fileName = playing
+							setupSound(soundChannel, fileName, args[0], message.channel)
+
+						} else { message.reply('the bot is not playing anything right now'); }
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
+				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
 			// soundbot test
@@ -453,33 +499,56 @@ function queue(ConnectionID, url, info, start, channel) {
 
 function playMusic(ConnectionID, url, info, start, channel) {
 
-	let soundChannel = VoiceChannels.get(ConnectionID);
-	connection = soundChannel.get('connection');
+	const soundChannel = VoiceChannels.get(ConnectionID);
 	
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
-	const stream = ytdl(url, { quality: "highestaudio", highWaterMark: 12});
-	const audio = connection.play(
-		stream, 
-		{seek: start, volume: false, StreamType: 'converted', highWaterMark: 12} 
-	);
-	soundChannel.set('playing', audio);
+
+	const fileName = __dirname + '\\songs\\' + soundChannel.get('guild');
+	// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
+	let ytdl = spawn('youtube-dl', [url, '-x', '-o', fileName + '.%(ext)s']);
+	ytdl.on('close', code => {
+		if (code == 0) {
+			setupSound(soundChannel, fileName, start, channel)
+		} else {
+			console.log('ytdl exited with error code: ' + code)
+		}
+	});
+
+	soundChannel.set('playing', fileName);
 	soundChannel.set('ended', false);
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
+
+}
+
+function setupSound(soundChannel, fileName, start, channel) {
 	
-	stream.on('end', async function () {
+	fileName = fileName + '.opus'
+	connection = soundChannel.get('connection')
+
+	const stream = fs.createReadStream(fileName)
+	const audio = connection.play(
+		stream, 
+		{seek: start, StreamType: 'opus', highWaterMark: 16384} 
+	);
+
+	stream.on('end', function () {
 		soundChannel.set('ended', true);
 		console.log('Consumed file');
 	});
 
-	audio.on('speaking', async speaking => {
+	audio.on('speaking', speaking => {
 		if (!speaking && soundChannel.get('ended')) {
+			console.log(fileName)
 			console.log('Song stopped playing');
 			soundChannel.set('playing', false);
 			let nextSongInfo = soundChannel.get('queue').shift();
 			if (nextSongInfo) {
 				soundChannel.get('eventHandler').emit('SongOver', nextSongInfo);
-			} else (channel.send('The music queue is now empty'))
+			} else {
+				channel.send('The music queue is now empty')
+				fs.unlink(fileName, err => { if (err) {console.error('An error occurred:\n', err)} })
+			}
 		}
 	});
 }
