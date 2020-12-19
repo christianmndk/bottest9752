@@ -63,7 +63,7 @@ var OAuth2 = google.auth.OAuth2;
 const client = new Client();
 
 // Create some constants
-const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','webp','wv']
+const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','wv']
 const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp']
 // Only for raw image files that can be converted to something else
 const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2']
@@ -149,7 +149,7 @@ client.on('message', async message => {
 				console.log(message);
 				break;
 			}
-			// testbot reply
+			// testbot webm
 			case 'webm': {
 				if (message.attachments.first()) {
 					message.reply('the command \'webm\' requires a webm attachment sent with the message');
@@ -169,7 +169,7 @@ client.on('message', async message => {
 								console.log(attachment);
 								console.log('Sending converted');
 								Converted = new MessageAttachment('./file.mp4', name);
-								message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error(er));
+								message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} }));
 							}
 							else {
 								console.log('ffmpeg failed during conversion');
@@ -217,7 +217,7 @@ client.on('message', async message => {
 									message.reply('uploaded filetype is not supported');
 								}
 								// check for name
-								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join('.') + args[0];}
+								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join('.') + '.' + args[0];}
 								// convert the file
 								let file = `./${name}`
 								let ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name])
@@ -231,8 +231,8 @@ client.on('message', async message => {
 									}
 									else {
 										console.log('ffmpeg failed during conversion');
-										message.reply(attachment.name + 'could not be converted because an error happened during conversion');
-										fs.unlink(file, er => { if (er) {console.error('An error occurred:\n', er)} }).catch(er => console.error('An error occurred and was caught:\n', er));
+										message.reply(attachment.name + ' could not be converted because an error happened during conversion');
+										fs.unlink(file, er => { if (er) {console.error('An error occurred:\n', er)} });
 									}
 								});
 							});
@@ -560,9 +560,11 @@ async function getVideoLink(searchQuery) {
 
 	let filter;
 	let filters;
-
-	filters = await ytsr.getFilters(searchQuery)
-	filter = filters.get('Type').find(o => o.name === 'Video'); // extracts a youtube link that can be used to search for only videos
+	console.log(searchQuery)
+	filters = await ytsr(searchQuery)
+	//filter = filters.get('Type').find(o => o.name === 'Video'); // extracts a youtube link that can be used to search for only videos
+	
+	console.log(filters)
 	const options = {
 		limit: 1,
 		nextpageRef: filter.ref
