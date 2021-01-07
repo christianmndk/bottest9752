@@ -59,6 +59,9 @@ const EventEmitter = require('events');
 var {google} = require('googleapis');
 var OAuth2 = google.auth.OAuth2;
 
+// setup event emitter clas
+class MyEmitter extends EventEmitter {}
+
 // Create an instance of a Discord client
 const client = new Client();
 
@@ -88,7 +91,7 @@ async function addVoiceConnection(message) {
 	console.log(ConnectionID);
 	VoiceChannels.set(ConnectionID, info);
 
-	info.get('eventHandler').on('SongOver', function PlayNextSong(nextSongInfo) { 
+	info.get('eventHandler').on('SongOver', async function PlayNextSong(nextSongInfo) {
 		playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
 	})
 	info.get('eventHandler').on('Shutdown', function disconnectShutdown() { 
@@ -122,8 +125,7 @@ process.on('SIGINT', function() {
 	deleteSongs.on('close', code => {
 		console.log(code);
 		process.exit();
-	})
-	
+	});
 });
 
 client.on('message', async message => {
@@ -344,15 +346,15 @@ client.on('message', async message => {
 				} else if (args[1]) {
 					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')');
 				}
-				const [url, info] = await getVideoLink(searchQuery);
-				if (ytdl.validateURL(url)) {
+				const videoInfo = await getVideoLink(searchQuery);
+				if (ytdl.validateURL(videoInfo.url)) {
 					if (soundChannel.get('playing')) {
-						queue(ConnectionID, url, info, start, message.channel);
-						console.log(`Queued "${url}" in ${ConnectionID}`);
+						queue(ConnectionID, videoInfo.url, videoInfo, start, message.channel);
+						console.log(`Queued "${videoInfo.url}" in ${ConnectionID}`);
 						message.reply('your song is now queued');
 						return;
 					} else {
-					playMusic(ConnectionID, url, info, start, message.channel)
+					playMusic(ConnectionID, videoInfo.url, videoInfo, start, message.channel)
 					}
 				} else {
 					console.error('id and url did not yield a valid url');
@@ -471,10 +473,7 @@ client.on('message', async message => {
 			}
 			// soundbot test
 			case 'test' : {
-				let ConnectionID = message.guild.id;
-				let soundChannel = VoiceChannels.get(ConnectionID);
-				message.reply(test);
-				break;
+				message.reply("test")
 			}
 			// Just add any case commands if you want to..
 		}
@@ -497,24 +496,42 @@ function queue(ConnectionID, url, info, start, channel) {
 	soundChannel.get('queue').push(queueItem);
 }
 
-function playMusic(ConnectionID, url, info, start, channel) {
+async function playMusic(ConnectionID, url, info, start, channel) {
 
 	const soundChannel = VoiceChannels.get(ConnectionID);
 	
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
 
-	const fileName = __dirname + '\\songs\\' + soundChannel.get('guild');
+	let fileName = __dirname + '\\songs\\' + soundChannel.get('guild');
 	// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
 	let ytdl = spawn('youtube-dl', [url, '-x', '-o', fileName + '.%(ext)s']);
-	ytdl.on('close', code => {
+	ytdl.on('close', async code => {
 		if (code == 0) {
-			setupSound(soundChannel, fileName, start, channel)
+			let extension = await getExtensionOfGuildSound(soundChannel.get('guild'))
+			console.log(extension)
+			if (extension != '.opus' ) {
+				let ffmpeg = spawn('ffmpeg', ['-y', '-i', fileName + extension, '-c:a:v', 'copy', fileName + '.opus'])	
+				ffmpeg.on('close', async code => {
+					if (code == 0) {
+						console.log('converted file')
+						fs.unlink(fileName + extension, er => { if (er) {console.error('An error occurred:\n', er)} })
+						setupSound(soundChannel, fileName +'.opus', start, channel)
+					}
+					else {
+						console.log('ffmpeg failed during conversion');
+						fs.unlink(fileName + extension, er => { if (er) {console.error('An error occurred:\n', er)} });
+					}
+				});
+			} else {
+				setupSound(soundChannel, fileName + '.opus', start, channel)
+			}
 		} else {
+			
 			console.log('ytdl exited with error code: ' + code)
 		}
 	});
 
-	soundChannel.set('playing', fileName);
+	soundChannel.set('playing', fileName + '.opus');
 	soundChannel.set('ended', false);
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
@@ -523,13 +540,13 @@ function playMusic(ConnectionID, url, info, start, channel) {
 
 function setupSound(soundChannel, fileName, start, channel) {
 	
-	fileName = fileName + '.opus'
 	connection = soundChannel.get('connection')
-
 	const stream = fs.createReadStream(fileName)
+	//console.log(stream)
+	console.log(fileName)
 	const audio = connection.play(
 		stream, 
-		{seek: start, StreamType: 'opus', highWaterMark: 16384} 
+		{seek: start, StreamType: 'opus', highWaterMark: 16384}
 	);
 
 	stream.on('end', function () {
@@ -552,8 +569,8 @@ function setupSound(soundChannel, fileName, start, channel) {
 		}
 	});
 }
-
-async function getVideoLink(searchQuery) {
+// old function malfunctioned last time i checked
+/* async function getVideoLink(searchQuery) {
 	if (typeof searchQuery !== 'string') {
 		console.log('search query was not a string: aborting search');
 		return; }
@@ -581,9 +598,74 @@ async function getVideoLink(searchQuery) {
 		}
 		});
 	return response;
+} */
+
+// The only function of this code is too get the default search query which
+// originally was to rick roll poeple that didn't give it anything too serch 
+// for
+
+let filename = "assets/DefaultSearch.txt"
+async function getDefaultSearchQuery() {
+	defaultSearchQuery = new Promise(function(resolve) {
+		fs.readFile(filename, 'utf8', function(err, data) {
+			if (err) throw err;
+			const defaultSearchArray = data.split(',');
+			resolve( defaultSearchArray[Math.floor(Math.random()*defaultSearchArray.length)] )
+		});
+	});
+	return defaultSearchQuery
 }
 
-async function getVideoId(searchQuery) {
+// gets video link from search query 
+
+async function getVideoLink(searchQuery) {
+	if (!searchQuery) {
+		searchQuery = await getDefaultSearchQuery()
+	}
+	let videoId = "";
+	let video = new Promise(function(resolve) {
+		let wholeDocument = new MyEmitter 
+		https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
+			let documentBody = ""
+			res.on('data', (data) => {
+				documentBody += data;
+				if (data.slice(data.length-7) == "</html>") {wholeDocument.emit("got", documentBody)}
+			});
+		});
+		
+		wholeDocument.on("got", (data) => {
+			// Create regex patterns
+			const reInformation = /"videoId":.*?(?=,"acc)/g
+			//const reID = /"videoId":"\w*?"/g;     Not currently used
+			const reThumbnail = /(?<="thumbnails":\[).*?(?=\])/g;
+			const reTitle = /(?<="title":\{"runs":\[\{"text":").*?(?="\}\])/g
+			// we extract a snippet of the whole document containing the relevant information about the video
+			let result = reInformation[Symbol.match](data);
+			if (result != null) {
+				// extracts the video ID and adds it to the link
+				videoId = result[0].slice(11,22);
+				videoLink = "https://www.youtube.com/watch?v=" + videoId
+				// extracts the title of the video
+				videoTitle = reTitle[Symbol.match](result[0])[0]
+				// extracts the thumbnail link of highest quality
+				tempThumbnail = reThumbnail[Symbol.match](result[0])[0].split(',')
+				videoThumbnailLink = tempThumbnail[tempThumbnail.length-3].slice(8).slice(0,-1)
+				// we pack the video info nice and tidy
+				let video = {
+					url: videoLink,
+					title: videoTitle,
+					thumbnail: videoThumbnailLink
+				}
+				resolve(video)
+			} 
+			//process.stdout.write(data);
+		});
+	});
+	return video;
+}
+
+// is not being used, replaced by getVideoLink
+/* async function getVideoId(searchQuery) {
 	console.log(searchQuery);
 	
 	var service = google.youtube('v3');
@@ -605,7 +687,7 @@ async function getVideoId(searchQuery) {
 			}
 		});
 	return response;
-}
+} */
 
 function youtubeEmbed(url, videoInfo) {
 	const embed = new MessageEmbed()
@@ -615,4 +697,15 @@ function youtubeEmbed(url, videoInfo) {
 		.addField('Video name', videoInfo.title)
 		.addField('link:', url, true);
 	return embed;
+}
+
+// used to get the file extensions of files created by youtube-dl
+async function getExtensionOfGuildSound(guildID) {
+	const fileName = __dirname + '\\songs\\'; 
+	const dir = await fs.promises.opendir(fileName);
+	for await (const file of dir) {
+		if (file.name.split('.')[0] == guildID); {
+			return '.' + file.name.split('.')[1]
+		}
+	}
 }
