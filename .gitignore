@@ -1,4 +1,4 @@
 auth.json
 client_secret.json
 start.js
-/songs
+/songs/*
