@@ -1,6 +1,6 @@
 /*
 Things that can be improved:
-play function should download the currently playing song, but strean it until its done, when its done downloading all commands should be used on
+play function should download the currently playing song, but stream it until it's done, when it's done downloading all commands should be used on
 	the downloaded song for faster reaction eg. seek
 
 Make convert function look for latest picture or video based on which format it is trying to convert to
@@ -13,8 +13,6 @@ var auth = require('./auth.json');
 // used so the bot can download things
 const https = require('https');
 const fs = require('fs');
-const ytdl = require('ytdl-core');
-const ytsr = require('ytsr');
 
 const stupidcommands = require("./scripts/stupidcommands");
 
@@ -28,36 +26,10 @@ const request = https.get(attachment.url, function(response) {
 });
 */
 
-// Variables and functions used to search for things on youtube
-const TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
-	process.env.USERPROFILE) + '/.credentials/';
-const TOKEN_PATH = TOKEN_DIR + 'youtube-nodejs-quickstart.json';
-
-function GetAuth() {
-	content = fs.readFileSync('client_secret.json');
-	var auth = authorize(JSON.parse(content));
-	return auth;
-}
-
-function authorize(credentials) {
-	var clientSecret = credentials.installed.client_secret;
-	var clientId = credentials.installed.client_id;
-	var redirectUrl = credentials.installed.redirect_uris[0];
-	var oauth2Client = new OAuth2(clientId, clientSecret, redirectUrl);
-
-	oauth2Client.credentials = JSON.parse(fs.readFileSync(TOKEN_PATH))
-	return oauth2Client;
-}
-
-	// call this function when you need to execute other youtube commands
-	// or use it to create simpler functions (credential is SecretContent)
-
 // Extract the required classes from the required modules
 const { Client, MessageAttachment, MessageEmbed, Collection} = require('discord.js');
 const { spawn } = require('child_process');
 const EventEmitter = require('events');
-var {google} = require('googleapis');
-var OAuth2 = google.auth.OAuth2;
 
 // setup event emitter clas
 class MyEmitter extends EventEmitter {}
@@ -74,6 +46,11 @@ const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2']
 // Create organiser for voicechannels
 let VoiceChannels = new Map();
 
+// Create function to get time in seconds
+	function getTime() { return parseInt(new Date().getTime()/1000); }
+
+console.log(getTime());
+
 // Adding a voice connection
 async function addVoiceConnection(message) {
 	const connection = await message.member.voice.channel.join();
@@ -85,7 +62,13 @@ async function addVoiceConnection(message) {
 	info.set('guild', message.guild.id);
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
+	info.set('audio')
 	info.set('eventHandler', new EventEmitter());
+	info.set('timeStarted', 0)
+	info.set('pauseStarted', 0)
+	info.set('videoLength', 0)
+	info.set('timestamp', 0)
+	info.set('pausedTime', 0)
 
 	ConnectionID = message.guild.id;
 	console.log(ConnectionID);
@@ -268,7 +251,7 @@ client.on('message', async message => {
 						const stream = fileName + '.opus'
 						const audio = connection.play(
 							stream, 
-							{volume: false, StreamType: 'converted', highWaterMark: 12} 
+							{volume: false, StreamType: 'converted'} 
 						);
 					} else {
 						console.log('ytdl exited with error code: ' + code)
@@ -305,6 +288,7 @@ client.on('message', async message => {
 				message.channel.send(`${message.author}, pong!`);
 				break;
 			}
+
 			// soundbot join
 			case 'join' : {
 				let ConnectionID = message.guild.id;
@@ -320,6 +304,7 @@ client.on('message', async message => {
 				}
 				break;
 			}
+
 			// soundbot play
 			case 'play' : {
 				let ConnectionID = message.guild.id;
@@ -347,21 +332,17 @@ client.on('message', async message => {
 					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')');
 				}
 				const videoInfo = await getVideoLink(searchQuery);
-				if (ytdl.validateURL(videoInfo.url)) {
-					if (soundChannel.get('playing')) {
-						queue(ConnectionID, videoInfo.url, videoInfo, start, message.channel);
-						console.log(`Queued "${videoInfo.url}" in ${ConnectionID}`);
-						message.reply('your song is now queued');
-						return;
-					} else {
-					playMusic(ConnectionID, videoInfo.url, videoInfo, start, message.channel)
-					}
+				if (soundChannel.get('playing')) {
+					queue(ConnectionID, videoInfo.url, videoInfo, start, message.channel);
+					console.log(`Queued "${videoInfo.url}" in ${ConnectionID}`);
+					message.reply('your song is now queued');
+					return;
 				} else {
-					console.error('id and url did not yield a valid url');
-					message.reply('that video not available');
+					playMusic(ConnectionID, videoInfo.url, videoInfo, start, message.channel)
 				}
 				break;
 			}
+
 			// soundbot leave
 			case 'leave' : {
 				let ConnectionID = message.guild.id;
@@ -375,16 +356,19 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+
 			// soundbot pause
 			case 'pause' : {
 				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						let audio = VoiceChannels.get(ConnectionID).get('playing');
+						let soundChannel = VoiceChannels.get(ConnectionID);
+						let audio = soundChannel.get('audio');
 						if (audio) {
 							if (!audio.paused) {
-								console.log(audio);
+								//console.log(audio);
 								audio.pause();
+								soundChannel.set('pauseStarted', getTime());
 								console.log('paused voice channel: ' + ConnectionID);
 							} else { message.reply('the bot is already paused'); }
 						} else { message.reply('the bot is not playing anything right now'); }
@@ -392,15 +376,21 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+
 			// soundbot resume
 			case 'resume' : {
 				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						let audio = VoiceChannels.get(ConnectionID).get('playing');
+						let soundChannel = VoiceChannels.get(ConnectionID);
+						let audio = soundChannel.get('audio');
 						if (audio) {
 							if (audio.paused) {
 								audio.resume();
+								soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
+								soundChannel.set('pauseStarted', 0); // reset just to be sure
+								soundChannel.set('timestamp', getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime'));
+								console.log(soundChannel.get('timestamp'))
 								console.log('resumed voice channel: ' + ConnectionID);
 							} else { message.reply('the bot is already playing'); }
 						} else { message.reply('the bot is not playing anything right now'); }
@@ -408,6 +398,7 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+
 			// soundbot skip
 			case 'skip' : {
 				let ConnectionID = message.guild.id;
@@ -432,6 +423,7 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+
 			// soundbot queue
 			case 'queue' : {
 				let ConnectionID = message.guild.id;
@@ -447,6 +439,7 @@ client.on('message', async message => {
 				} else ( message.reply('the queue is empty'))
 				break;
 			}
+
 			case 'seek' : {
 
 				if (!isNaN(args[0])){
@@ -471,6 +464,25 @@ client.on('message', async message => {
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
+
+			case 'timestamp' : {
+
+				const ConnectionID = message.guild.id;
+				if (VoiceChannels.has(ConnectionID)) {
+					const soundChannel = VoiceChannels.get(ConnectionID);
+					if (soundChannel.get('id') == message.member.voice.channel.id) {
+						const playing = soundChannel.get('playing');
+						if (playing) {
+
+							const fileName = playing
+							setupSound(soundChannel, fileName, args[0], message.channel)
+
+						} else { message.reply('the bot is not playing anything right now'); }
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
+				} else { message.reply('the bot must be running for you to use that command'); }
+				break;
+			}
+
 			// soundbot test
 			case 'test' : {
 				message.reply("test")
@@ -505,8 +517,10 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	let fileName = __dirname + '\\songs\\' + soundChannel.get('guild');
 	// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
 	let ytdl = spawn('youtube-dl', [url, '-x', '-o', fileName + '.%(ext)s']);
+	console.log("ytdl begins")
 	ytdl.on('close', async code => {
 		if (code == 0) {
+			console.log("ytdl ends")
 			let extension = await getExtensionOfGuildSound(soundChannel.get('guild'))
 			console.log(extension)
 			if (extension != '.opus' ) {
@@ -515,7 +529,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 					if (code == 0) {
 						console.log('converted file')
 						fs.unlink(fileName + extension, er => { if (er) {console.error('An error occurred:\n', er)} })
-						setupSound(soundChannel, fileName +'.opus', start, channel)
+						setupSound(soundChannel, fileName +'.opus', start, channel, info)
 					}
 					else {
 						console.log('ffmpeg failed during conversion');
@@ -523,16 +537,19 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 					}
 				});
 			} else {
-				setupSound(soundChannel, fileName + '.opus', start, channel)
+				setupSound(soundChannel, fileName + '.opus', start, channel, info)
 			}
 		} else {
-			
 			console.log('ytdl exited with error code: ' + code)
 		}
 	});
 
 	soundChannel.set('playing', fileName + '.opus');
 	soundChannel.set('ended', false);
+	soundChannel.set('videoLength', info.length);
+	soundChannel.set('pauseStarted', 0)
+	soundChannel.set('pausedTime', 0)
+	soundChannel.set('timestamp', 0)
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
 
@@ -541,6 +558,8 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 function setupSound(soundChannel, fileName, start, channel) {
 	
 	connection = soundChannel.get('connection')
+	soundChannel.set('timeStarted', getTime());
+
 	const stream = fs.createReadStream(fileName)
 	//console.log(stream)
 	console.log(fileName)
@@ -549,9 +568,19 @@ function setupSound(soundChannel, fileName, start, channel) {
 		{seek: start, StreamType: 'opus', highWaterMark: 16384}
 	);
 
+	soundChannel.set('audio', audio)
+
 	stream.on('end', function () {
 		soundChannel.set('ended', true);
 		console.log('Consumed file');
+	});
+
+	stream.on('finish', function () {
+		console.log('finish file');
+	});
+
+	stream.on('close', function () {
+		console.log('close file');
 	});
 
 	audio.on('speaking', speaking => {
@@ -569,40 +598,6 @@ function setupSound(soundChannel, fileName, start, channel) {
 		}
 	});
 }
-// old function malfunctioned last time i checked
-/* async function getVideoLink(searchQuery) {
-	if (typeof searchQuery !== 'string') {
-		console.log('search query was not a string: aborting search');
-		return; }
-
-	let filter;
-	let filters;
-	console.log(searchQuery)
-	filters = await ytsr(searchQuery)
-	//filter = filters.get('Type').find(o => o.name === 'Video'); // extracts a youtube link that can be used to search for only videos
-	
-	console.log(filters)
-	const options = {
-		limit: 1,
-		nextpageRef: filter.ref
-	}
-	var response = await ytsr(null, options)
-		.then((searchResults) => {
-		if (!searchResults.items[0]) {
-			console.log('No video found.');
-			return;
-		} else {
-			console.log(searchResults.items[0]);
-			console.log('returning url:\n' + searchResults.items[0].link);
-			return [searchResults.items[0].link, searchResults.items[0]];
-		}
-		});
-	return response;
-} */
-
-// The only function of this code is too get the default search query which
-// originally was to rick roll poeple that didn't give it anything too serch 
-// for
 
 let filename = "assets/DefaultSearch.txt"
 async function getDefaultSearchQuery() {
@@ -634,27 +629,42 @@ async function getVideoLink(searchQuery) {
 		});
 		
 		wholeDocument.on("got", (data) => {
+			/*
+			console.log(data)
 			// Create regex patterns
 			const reInformation = /"videoId":.*?(?=,"acc)/g
+			*/
+			const reInformation = /"videoId":.*?,"vi/;
 			//const reID = /"videoId":"\w*?"/g;     Not currently used
-			const reThumbnail = /(?<="thumbnails":\[).*?(?=\])/g;
-			const reTitle = /(?<="title":\{"runs":\[\{"text":").*?(?="\}\])/g
+			const reThumbnail = /(?<="thumbnails":\[).*?(?=\])/;
+			const reTitle = /(?<="title":\{"runs":\[\{"text":").*?(?="\}\])/;
+			const reLength = /(?<=}},"simpleText":")[\d\.]+/;
+
 			// we extract a snippet of the whole document containing the relevant information about the video
 			let result = reInformation[Symbol.match](data);
+			
 			if (result != null) {
 				// extracts the video ID and adds it to the link
 				videoId = result[0].slice(11,22);
-				videoLink = "https://www.youtube.com/watch?v=" + videoId
+				videoLink = "https://www.youtube.com/watch?v=" + videoId;
 				// extracts the title of the video
-				videoTitle = reTitle[Symbol.match](result[0])[0]
+				videoTitle = reTitle[Symbol.match](result[0])[0];
 				// extracts the thumbnail link of highest quality
-				tempThumbnail = reThumbnail[Symbol.match](result[0])[0].split(',')
-				videoThumbnailLink = tempThumbnail[tempThumbnail.length-3].slice(8).slice(0,-1)
+				tempThumbnail = reThumbnail[Symbol.match](result[0])[0].split(',');
+				videoThumbnailLink = tempThumbnail[tempThumbnail.length-3].slice(8).slice(0,-1);
+				// extracts the video length
+				
+				tempLength = reLength[Symbol.match](result[0])[0].split('.');
+				let time = 0;
+				if ( tempLength.length == 3 ) { time = parseInt(tempLength[0], 10)*3600 + parseInt(tempLength[1], 10)*60 + parseInt(tempLength[2], 10); }
+				else 															 { time = parseInt(tempLength[0], 10)*60 + parseInt(tempLength[1], 10); }
+				
 				// we pack the video info nice and tidy
 				let video = {
 					url: videoLink,
 					title: videoTitle,
-					thumbnail: videoThumbnailLink
+					thumbnail: videoThumbnailLink,
+					length: time
 				}
 				resolve(video)
 			} 
@@ -663,31 +673,6 @@ async function getVideoLink(searchQuery) {
 	});
 	return video;
 }
-
-// is not being used, replaced by getVideoLink
-/* async function getVideoId(searchQuery) {
-	console.log(searchQuery);
-	
-	var service = google.youtube('v3');
-	var response = await service.search.list({
-		auth: GetAuth(),
-		part: 'snippet',
-		maxResults: 1,
-		type: 'video',
-		q: searchQuery})
-		.then(response =>  {
-			const video = response.data.items;
-			if (video.length == 0) {
-				console.log('No video found.');
-				return;
-			} else {
-				console.log(video);
-				console.log('returning id:\n' + video[0].id.videoId);
-				return [video[0].id.videoId, video[0].snippet.title];
-			}
-		});
-	return response;
-} */
 
 function youtubeEmbed(url, videoInfo) {
 	const embed = new MessageEmbed()
@@ -701,7 +686,7 @@ function youtubeEmbed(url, videoInfo) {
 
 // used to get the file extensions of files created by youtube-dl
 async function getExtensionOfGuildSound(guildID) {
-	const fileName = __dirname + '\\songs\\'; 
+	const fileName = __dirname + '\\songs\\';
 	const dir = await fs.promises.opendir(fileName);
 	for await (const file of dir) {
 		if (file.name.split('.')[0] == guildID); {
