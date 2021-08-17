@@ -46,8 +46,8 @@ const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2']
 // Create organiser for voicechannels
 let VoiceChannels = new Map();
 
-// Create function to get time in seconds
-	function getTime() { return parseInt(new Date().getTime()/1000); }
+// Create function to get time in milliseconds
+function getTime() { return parseInt(new Date().getTime()); }
 
 console.log(getTime());
 
@@ -62,21 +62,35 @@ async function addVoiceConnection(message) {
 	info.set('guild', message.guild.id);
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
-	info.set('audio')
+	info.set('audio');
 	info.set('eventHandler', new EventEmitter());
-	info.set('timeStarted', 0)
-	info.set('pauseStarted', 0)
-	info.set('videoLength', 0)
-	info.set('timestamp', 0)
-	info.set('pausedTime', 0)
+	info.set('currentVideoInfo');
+	// all in milliseconds
+	info.set('timeStarted', 0);
+	info.set('pauseStarted', 0);
+	info.set('videoLength', 0);
+	info.set('pausedTime', 0);
 
 	ConnectionID = message.guild.id;
 	console.log(ConnectionID);
 	VoiceChannels.set(ConnectionID, info);
-
+	/*
 	info.get('eventHandler').on('SongOver', async function PlayNextSong(nextSongInfo) {
 		playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
-	})
+	}); */
+	info.get('eventHandler').on('SongOver', async function PlayNextSong(soundChannel, filename, channel) {
+		console.log(filename)
+		console.log('Song stopped playing');
+		soundChannel.set('playing', false);
+		let nextSongInfo = soundChannel.get('queue').shift();
+		if (nextSongInfo) {
+			playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+		} else {
+			channel.send('The music queue is now empty')
+			fs.unlink(filename, err => { if (err) {console.error('An error occurred:\n', err)} })
+		}
+		
+	});
 	info.get('eventHandler').on('Shutdown', function disconnectShutdown() { 
 		info.get('connection').disconnect();
 		removeVoiceConnection(info.get('guild'));
@@ -389,8 +403,7 @@ client.on('message', async message => {
 								audio.resume();
 								soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
 								soundChannel.set('pauseStarted', 0); // reset just to be sure
-								soundChannel.set('timestamp', getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime'));
-								console.log(soundChannel.get('timestamp'))
+								console.log(getTimestamp)
 								console.log('resumed voice channel: ' + ConnectionID);
 							} else { message.reply('the bot is already playing'); }
 						} else { message.reply('the bot is not playing anything right now'); }
@@ -409,8 +422,8 @@ client.on('message', async message => {
 						if (audio) {
 							if(soundChannel.get('queue').length > 0){
 								soundChannel.set('playing', false);
-								let nextSongInfo = soundChannel.get('queue').shift();
-								soundChannel.get('eventHandler').emit('SongOver', nextSongInfo);
+								filename = __dirname + '\\songs\\' + soundChannel.get('guild') + '.opus'
+								soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, message.channel);
 
 							} else { 
 								connection = soundChannel.get('connection')
@@ -473,10 +486,8 @@ client.on('message', async message => {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
 						const playing = soundChannel.get('playing');
 						if (playing) {
-
-							const fileName = playing
-							setupSound(soundChannel, fileName, args[0], message.channel)
-
+							embed = timestampEmbed(soundChannel);
+							message.channel.send(embed);
 						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
@@ -486,6 +497,8 @@ client.on('message', async message => {
 			// soundbot test
 			case 'test' : {
 				message.reply("test")
+				const connection = await message.member.voice.channel.join();
+
 			}
 			// Just add any case commands if you want to..
 		}
@@ -516,7 +529,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 
 	let fileName = __dirname + '\\songs\\' + soundChannel.get('guild');
 	// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
-	let ytdl = spawn('youtube-dl', [url, '-x', '-o', fileName + '.%(ext)s']);
+	let ytdl = spawn('youtube-dl', [url, '-x', '-i', '-o', fileName + '.%(ext)s'], {shell: 'cmd.exe'});
 	console.log("ytdl begins")
 	ytdl.on('close', async code => {
 		if (code == 0) {
@@ -529,7 +542,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 					if (code == 0) {
 						console.log('converted file')
 						fs.unlink(fileName + extension, er => { if (er) {console.error('An error occurred:\n', er)} })
-						setupSound(soundChannel, fileName +'.opus', start, channel, info)
+						setupSound(soundChannel, fileName +'.opus', start, channel)
 					}
 					else {
 						console.log('ffmpeg failed during conversion');
@@ -537,11 +550,19 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 					}
 				});
 			} else {
-				setupSound(soundChannel, fileName + '.opus', start, channel, info)
+				setupSound(soundChannel, fileName + '.opus', start, channel)
 			}
 		} else {
 			console.log('ytdl exited with error code: ' + code)
 		}
+	});
+
+	ytdl.on('error', async error => {
+		console.log('An error uccured while running youtube-dl: ' + error)
+	});
+
+	ytdl.stdout.on('data', async data => {
+		console.log( `${data}` )
 	});
 
 	soundChannel.set('playing', fileName + '.opus');
@@ -549,53 +570,35 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	soundChannel.set('videoLength', info.length);
 	soundChannel.set('pauseStarted', 0)
 	soundChannel.set('pausedTime', 0)
-	soundChannel.set('timestamp', 0)
+	soundChannel.set('currentVideoInfo', info)
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
 
 }
 
-function setupSound(soundChannel, fileName, start, channel) {
+function setupSound(soundChannel, filename, start, channel) {
 	
 	connection = soundChannel.get('connection')
 	soundChannel.set('timeStarted', getTime());
 
-	const stream = fs.createReadStream(fileName)
+	const stream = fs.createReadStream(filename)
 	//console.log(stream)
-	console.log(fileName)
+	console.log(filename)
 	const audio = connection.play(
 		stream, 
-		{seek: start, StreamType: 'opus', highWaterMark: 16384}
+		{	
+			seek: start, 
+			StreamType: 'opus', 
+			highWaterMark: 16384,
+			bitrate: 'auto',
+			volume: false
+		}
 	);
 
 	soundChannel.set('audio', audio)
-
-	stream.on('end', function () {
-		soundChannel.set('ended', true);
-		console.log('Consumed file');
-	});
-
-	stream.on('finish', function () {
-		console.log('finish file');
-	});
-
-	stream.on('close', function () {
-		console.log('close file');
-	});
-
-	audio.on('speaking', speaking => {
-		if (!speaking && soundChannel.get('ended')) {
-			console.log(fileName)
-			console.log('Song stopped playing');
-			soundChannel.set('playing', false);
-			let nextSongInfo = soundChannel.get('queue').shift();
-			if (nextSongInfo) {
-				soundChannel.get('eventHandler').emit('SongOver', nextSongInfo);
-			} else {
-				channel.send('The music queue is now empty')
-				fs.unlink(fileName, err => { if (err) {console.error('An error occurred:\n', err)} })
-			}
-		}
+	
+	audio.on('finish', function () {
+		soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
 	});
 }
 
@@ -693,4 +696,21 @@ async function getExtensionOfGuildSound(guildID) {
 			return '.' + file.name.split('.')[1]
 		}
 	}
+}
+
+function timestampEmbed(soundChannel) {
+	let info = soundChannel.get('currentVideoInfo');
+
+	const embed = new MessageEmbed()
+		.setColor('#FF0000')
+		.setTitle('Youtube playing:')
+		.setThumbnail(info.thumbnail)
+		.addField('Video name', info.title)
+		.addField('link:', info.url, true)
+		.setDescription( getTimestamp(soundChannel)/1000 + ':' + info.length );
+	return embed;
+}
+
+function getTimestamp(soundChannel) { 
+	return parseInt(getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime'));
 }

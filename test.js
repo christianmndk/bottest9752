@@ -7,6 +7,10 @@ TODO
 5. Show names (eg 'mads' -> shows all people named 'mads EXTRA EXTRA')
 
 */
+let LOGINNAME = ''
+let LOGINPASSWORD = ''
+let LOGINSCHOOLID = '557'
+
 const https = require('https');
 const querystring = require('querystring');
 const fs = require('fs')
@@ -362,10 +366,10 @@ function extractMessage(options, path, message) {
 }
 
 async function main() {
-	sessionInfo = await login('toke', 'nnw79puu', '557')
+	sessionInfo = await login(LOGINNAME, LOGINPASSWORD, LOGINSCHOOLID);
 	//console.log(sessionInfo)
 	//getClassPictures('2x', sessionInfo)
-	getMessage(0, sessionInfo, 100000000)
+	getMessage(0, sessionInfo, 100000000);
 	//getLatestMessage(sessionInfo)
 
 }
