@@ -5,7 +5,7 @@ TODO
 3. Send message
 4. Show grades 
 5. Show names (eg 'mads' -> shows all people named 'mads EXTRA EXTRA')
-
+test
 */
 let LOGINNAME = ''
 let LOGINPASSWORD = ''
