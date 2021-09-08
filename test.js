@@ -71,7 +71,7 @@ async function login(name, password, schoolID) {
 
 	const loginSite = https.request(loginOptions, (res) => {
 
-		console.log(`STATUS: ${res.statusCode}`);
+		console.log(`STATUS: ${res.statusCode} LoginSite request`);
 		//console.log(res.headers);
 
 		// We take the our login cookie and store it 
@@ -89,7 +89,7 @@ async function login(name, password, schoolID) {
 
 			const frontPage = https.request(SessionOptions, (res) => {
 		
-				console.log(`STATUS: ${res.statusCode}`);
+				console.log(`STATUS: ${res.statusCode} frontpage request`);
 				//console.log(res.headers);
 
 				res.setEncoding('utf8');
@@ -100,7 +100,6 @@ async function login(name, password, schoolID) {
 				});
 
 				res.on('end', () => {
-					//console.log(data)
 					// getting the students id from the page
 					reStudentID = /;elevid=[0-9]*/;
 					user.studentID = reStudentID[Symbol.match](data)[0].slice(8)
@@ -141,7 +140,7 @@ function getClassPictures(className, info) {
 	info.options.path = '/lectio/' + info.student.school + '/FindSkema.aspx?type=stamklasse'
 	const ClassSelector = https.request(info.options, (res) => {
 
-		console.log(`STATUS: ${res.statusCode}`);
+		console.log(`STATUS: ${res.statusCode} ClassSelector`);
 		res.setEncoding('utf8');
 
 		let data = '';
@@ -151,7 +150,19 @@ function getClassPictures(className, info) {
 		});
 		res.on('end', () => {
 			let reclassID = new RegExp("=[0-9]{10,12}'>" + className);
-			let classID = reclassID[Symbol.match](data)[0].slice(1);
+			let classID;
+			try {
+				classID = reclassID[Symbol.match](data)[0].slice(1);
+			}
+			catch (error) {
+				if (error instanceof TypeError) {
+					console.log('The class \'' + className + '\' does not exist. SKIPPING');
+					return;
+				}
+				else {
+					throw error;
+				}
+			}
 			classID = classID.slice(0,classID.length-2-className.length) ;
 			//console.log(data)
 			let classLinkPath = '/lectio/' + info.student.school + '/subnav/members.aspx?klasseid=' + classID + '&showstudents=1';
@@ -159,7 +170,7 @@ function getClassPictures(className, info) {
 
 			const PictureSelector = https.request(info.options, (res) => {
 
-				console.log(`STATUS: ${res.statusCode}`);
+				console.log(`STATUS: ${res.statusCode} PictureSelector request`);
 				res.setEncoding('utf8');
 		
 				let data = '';
@@ -167,16 +178,19 @@ function getClassPictures(className, info) {
 					data += chunk;
 				});
 				res.on('end', () => {
-					//console.log(data)
+
 					let rePictureID = /\?pictureid=[0-9]*/g;
 					let PictureIDs = rePictureID[Symbol.match](data)
+
 					let PictureID = ''
 					let PictureLink = ''
-					//console.log(PictureIDs)
+
+					console.log('Downloading ' + PictureIDs.length + ' pictures of: ' + className)
+
 					for (i=0; i < PictureIDs.length; i++) {
 						PictureID = PictureIDs[i].slice(11)
 						PictureLink = 'https://www.lectio.dk/lectio/' + info.student.school + '/GetImage.aspx?pictureid=' + PictureID + '&fullsize=1'
-						//console.log(PictureLink)
+
 						const file = fs.createWriteStream(PictureID + '.jpeg');
 						info.options.path = '/lectio/' + info.student.school + '/GetImage.aspx?pictureid=' + PictureID + '&fullsize=1'
 						const picture = https.request(info.options, (res) => {
@@ -189,9 +203,7 @@ function getClassPictures(className, info) {
 
 						picture.end()
 					}
-					console.log('DONE')
-					//console.log(PictureIDs)
-		
+					console.log('')
 				});
 			});
 
@@ -218,7 +230,7 @@ function logMessage(message) {
 	console.log('Sent:\t' + message.time)
 	console.log('Title:\t' + message.title)
 	console.log(message.message)
-	console.log('-----------Message END-----------')
+	console.log('-----------Message END-----------\n')
 }
 
 function getMessage(startFrom, info, messageAmount = 1) {
@@ -226,7 +238,7 @@ function getMessage(startFrom, info, messageAmount = 1) {
 	info.options.path = '/lectio/' + info.student.school + '/beskeder2.aspx?type=&elevid=' + info.student.studentID
 	const MessageSelector = https.request(info.options, (res) => {
 
-		console.log(`STATUS: ${res.statusCode}`);
+		console.log(`STATUS: ${res.statusCode} MessageSelector request`);
 		res.setEncoding('utf8');
 
 		let data = '';
@@ -253,13 +265,13 @@ function getMessage(startFrom, info, messageAmount = 1) {
 			// if we try to fetch a message that is not in the most recent just grab the oldest
 			if (startFrom > MessageInfo.length) { 
 				startFrom = MessageInfo.length;
+				console.log(`Tried to fetch ${messageAmount} message(s) out of range\nGrabbing the oldest`);
 				messageAmount = 1;
-				console.log('Tried to fetch message(s) out of range\nGrabbing oldest');
 			}
-			// if we try to get to many messages take as many messages after startFrom value
-			else if (startFrom + messageAmount > MessageInfo.length) { 
+			// if we try to get too many messages take as many messages after startFrom value
+			else if (startFrom + messageAmount > MessageInfo.length) {
+				console.log(`Tried to fetch ${messageAmount - MessageInfo.length} too many messages\nFetching as many as possible`);
 				messageAmount = MessageInfo.length - startFrom
-				console.log('Tried to fetch too many messages\nFetching as many as possible');
 			}
 
 			// get information about message
@@ -297,7 +309,6 @@ function getMessage(startFrom, info, messageAmount = 1) {
 					//console.log(message);
 					let path = pathString + MessageIndicators[i].slice(11);
 					info.options.path = path;
-					//let timer = new Date().getTime()
 
 					resolveMessage(extractMessage(info.options, path, message));
 				})
@@ -307,7 +318,6 @@ function getMessage(startFrom, info, messageAmount = 1) {
 				messages[i].then(logMessage(await messages[i]));
 				//console.log(messages[i])
 			}
-
 		});
 	});
 
@@ -336,23 +346,22 @@ function extractMessage(options, path, message) {
 
 			res.on('end', () => {
 				data = data.replace(/[\n\r]+/g, ' ');
-				const reMessage = /yle='b.*?<\/d/
-				let tempMessage = reMessage[Symbol.match](data)
+				const reMessage = /yle='b.*?<\/d/;
+				let tempMessage = reMessage[Symbol.match](data);
 				if (tempMessage == null) {
-					console.log ('Error in HTTPS request for message, retrying')
-					resolve (extractMessage(options, path, message) )
+					console.log ('Error in HTTPS request for message, retrying');
+					resolve (extractMessage(options, path, message) );
 				} 
 				else {
-					// general formatting
+					// general formatting				  linebreak to newlines----- strip formatting information----------------------- Fixing ampersands
 					tempMessage = tempMessage[0].slice(63).replace(/<br \/> /g, '\n').replace(/<span.*?>/g, '').replace(/<\/span>/g, '').replace(/\&amp/g, '&');
 					// links
-					tempMessage = tempMessage.replace(/<a href='/g, '[link] ').replace(/target='_blank'>/g, '[text] ').replace(/<\/a>/g, ' [/link]')
+					tempMessage = tempMessage.replace(/<a href='/g, '[link] ').replace(/target='_blank'>/g, '[text] ').replace(/<\/a>/g, ' [/link]');
 					// final trimming
 					tempMessage = tempMessage.slice(0, tempMessage.length-4);
 					message.message = tempMessage;
 
 					resolve(message);
-
 				}
 			});
 		});
@@ -365,10 +374,50 @@ function extractMessage(options, path, message) {
 	});
 }
 
-async function main() {
+async function sendMessage(recievers, topic, message, info) {
+
+	let grupperPath = new Promise(function(resolve) {
+		info.options.path = 'https://www.lectio.dk/lectio/' + info.student.school + '/default.aspx';
+		const gruppePathGetter = https.request(options, (res) => {
+			res.setEncoding('utf8');
+
+			let data = '';
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
+
+			res.on('end', () => {
+				const reGrupperPathID = /\&amp;fag=[0-9]+">Gruppe/;
+				let tempGrupperPath = reGrupperPathID[Symbol.match](data);
+				tempGrupperPath.slice(9).splice(0, tempGrupperPath.length - 8);
+
+				let grupperPath = '/lectio/' + info.student.school + '/FindSkema.aspx?type=hold&fag=' + tempGrupperPath;
+				console.log('Found path to \'grupper\' for search');
+				resolve(grupperPath)
+			});
+		});
+
+		gruppePathGetter.on('error', (e) => {
+			console.error(`promblem with gruppePathGetter request: ${e.message}`);
+		});
+
+		gruppePathGetter.end();
+
+	});
+
+	for (i = 0; i < recievers.length; i++) {
+		// WRITE SEARCH FUNCTION FOR STUDENTS, TEACHERS, TEAMS, AND GROUPS
+	}
+}
+
+async function searchRecieverInfo(searchTerm, sessionInfo) {
+
+}
+
+function main() {
 	sessionInfo = await login(LOGINNAME, LOGINPASSWORD, LOGINSCHOOLID);
 	//console.log(sessionInfo)
-	//getClassPictures('2x', sessionInfo)
+	//getClassPictures('3x', sessionInfo)
 	getMessage(0, sessionInfo, 100000000);
 	//getLatestMessage(sessionInfo)
 

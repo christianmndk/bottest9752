@@ -496,10 +496,9 @@ client.on('message', async message => {
 
 			// soundbot test
 			case 'test' : {
-				message.reply("test")
-				const connection = await message.member.voice.channel.join();
-
+				message.reply("test")				
 			}
+
 			// Just add any case commands if you want to..
 		}
 	}
@@ -527,43 +526,44 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
 
-	let fileName = __dirname + '\\songs\\' + soundChannel.get('guild');
-	// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
-	let ytdl = spawn('youtube-dl', [url, '-x', '-i', '-o', fileName + '.%(ext)s'], {shell: 'cmd.exe'});
-	console.log("ytdl begins")
-	ytdl.on('close', async code => {
-		if (code == 0) {
-			console.log("ytdl ends")
-			let extension = await getExtensionOfGuildSound(soundChannel.get('guild'))
-			console.log(extension)
-			if (extension != '.opus' ) {
-				let ffmpeg = spawn('ffmpeg', ['-y', '-i', fileName + extension, '-c:a:v', 'copy', fileName + '.opus'])	
-				ffmpeg.on('close', async code => {
-					if (code == 0) {
-						console.log('converted file')
-						fs.unlink(fileName + extension, er => { if (er) {console.error('An error occurred:\n', er)} })
-						setupSound(soundChannel, fileName +'.opus', start, channel)
-					}
-					else {
-						console.log('ffmpeg failed during conversion');
-						fs.unlink(fileName + extension, er => { if (er) {console.error('An error occurred:\n', er)} });
-					}
-				});
-			} else {
-				setupSound(soundChannel, fileName + '.opus', start, channel)
-			}
-		} else {
-			console.log('ytdl exited with error code: ' + code)
+	let fileName = __dirname + '\\songs\\' + soundChannel.get('guild')+'.opus';
+
+	connection = soundChannel.get('connection')
+
+	// Has to contain ' "STRING" ' or else it will not run on cmd.exe shell
+	let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"'
+	let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], {shell: 'cmd.exe'});
+	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', fileName], {shell: 'cmd.exe'});
+
+	/* -------YTDL EVENTS------- */
+	ytdl.on('error', async error => { console.log('error: ' + error) });
+	ytdl.stdout.on('data', async data => { ffmpeg.stdin.write(data); }); // Writes data to ffmpeg
+	ytdl.stderr.on('data', async data => { console.log( `ytdl: stderr: ${data}`) });
+
+	ytdl.on('close', (code) => {
+		if (code !== 0) { console.log(`ytdl process exited with code ${code}`); }
+		ffmpeg.stdin.end(); // lets ffmpeg end
+	});
+
+	/* ------FFMPEG EVENTS------ */
+	// Used to registre when ffmpeg starts filling up the file
+	const ffmpegEmitter = new EventEmitter();
+	// check when the audio file has some data
+	ffmpeg.stderr.on('data', async data => {
+		if (`${data}`.startsWith('size=')) { 
+			// implement some regex that can fetch the amount of video ffmpeg 
+			// has downloaded and wait untill it has downloaded more than
+			// 'start' seconds
+			ffmpegEmitter.emit('ready');
+			console.log( `ffmpeg: stderr: ${data}`);
 		}
 	});
+	ffmpeg.on('close', (code) => { if (code !== 0) { console.log(`ffmpeg process exited with code ${code}`); } });
 
-	ytdl.on('error', async error => {
-		console.log('An error uccured while running youtube-dl: ' + error)
+	ffmpegEmitter.once('ready', () => {
+		setupSound(soundChannel, fileName, start, channel)
 	});
-
-	ytdl.stdout.on('data', async data => {
-		console.log( `${data}` )
-	});
+	/* ------------------------- */
 
 	soundChannel.set('playing', fileName + '.opus');
 	soundChannel.set('ended', false);
@@ -582,7 +582,6 @@ function setupSound(soundChannel, filename, start, channel) {
 	soundChannel.set('timeStarted', getTime());
 
 	const stream = fs.createReadStream(filename)
-	//console.log(stream)
 	console.log(filename)
 	const audio = connection.play(
 		stream, 
