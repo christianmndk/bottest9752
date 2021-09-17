@@ -1,7 +1,8 @@
 /*
 Things that can be improved:
-play function should download the currently playing song, but stream it until it's done, when it's done downloading all commands should be used on
-	the downloaded song for faster reaction eg. seek
+Implement log file
+More clarity in log messages and errors
+different log levels
 
 Make convert function look for latest picture or video based on which format it is trying to convert to
 Make conver function argument to look further back than the latest attachemt eg. the second to last attachment
@@ -13,6 +14,7 @@ var auth = require('./auth.json');
 // used so the bot can download things
 const https = require('https');
 const fs = require('fs');
+const fsprom = require('fs/promises');
 
 const stupidcommands = require("./scripts/stupidcommands");
 
@@ -28,26 +30,27 @@ const request = https.get(attachment.url, function(response) {
 
 // Extract the required classes from the required modules
 const { Client, MessageAttachment, MessageEmbed, Collection} = require('discord.js');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const EventEmitter = require('events');
 
 // setup event emitter clas
-class MyEmitter extends EventEmitter {}
+class MyEmitter extends EventEmitter {};
 
 // Create an instance of a Discord client
 const client = new Client();
 
 // Create some constants
-const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','wv']
-const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp']
+const minimumWritten = 5; // create a little buffer before we start streaming
+const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','wv'];
+const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp'];
 // Only for raw image files that can be converted to something else
-const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2']
+const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2'];
 
 // Create organiser for voicechannels
 let VoiceChannels = new Map();
 
 // Create function to get time in milliseconds
-function getTime() { return parseInt(new Date().getTime()); }
+function getTime() { return parseInt(new Date().getTime()); };
 
 console.log(getTime());
 
@@ -63,6 +66,7 @@ async function addVoiceConnection(message) {
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
 	info.set('audio');
+	info.set('fileNumber', 0);
 	info.set('eventHandler', new EventEmitter());
 	info.set('currentVideoInfo');
 	// all in milliseconds
@@ -71,29 +75,25 @@ async function addVoiceConnection(message) {
 	info.set('videoLength', 0);
 	info.set('pausedTime', 0);
 
-	ConnectionID = message.guild.id;
-	console.log(ConnectionID);
-	VoiceChannels.set(ConnectionID, info);
-	/*
-	info.get('eventHandler').on('SongOver', async function PlayNextSong(nextSongInfo) {
-		playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
-	}); */
+	console.log(info.get('guild'));
+	VoiceChannels.set(info.get('guild'), info); // The guild id is used to uniquely identify each server
+
 	info.get('eventHandler').on('SongOver', async function PlayNextSong(soundChannel, filename, channel) {
-		console.log(filename)
+		console.log(filename);
 		console.log('Song stopped playing');
 		soundChannel.set('playing', false);
 		let nextSongInfo = soundChannel.get('queue').shift();
 		if (nextSongInfo) {
-			playMusic(ConnectionID, nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+			playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
 		} else {
-			channel.send('The music queue is now empty')
-			fs.unlink(filename, err => { if (err) {console.error('An error occurred:\n', err)} })
+			channel.send('The music queue is now empty');
+			await connection.play('');
+			//fs.truncate(filename, 0, err => { if (err) {console.error('An error occurred while deleting a file 1:\n', err)} })
 		}
-		
+
 	});
-	info.get('eventHandler').on('Shutdown', function disconnectShutdown() { 
-		info.get('connection').disconnect();
-		removeVoiceConnection(info.get('guild'));
+	info.get('eventHandler').on('Shutdown',async function disconnectShutdown() { 
+		await removeVoiceConnection(info.get('guild'));
 		console.log('removed voice channel: ' + info.get('guild'));
 	});
 
@@ -101,28 +101,38 @@ async function addVoiceConnection(message) {
 }
 
 // removing a voice connection
-function removeVoiceConnection(ConnectionID) {
-	VoiceChannels.delete(ConnectionID)
+async function removeVoiceConnection(ConnectionID) {
+	let soundChannel = VoiceChannels.get(ConnectionID);
+	await soundChannel.get('connection').disconnect();
+	soundChannel.get('eventHandler').emit('killffmpeg');
+	VoiceChannels.delete(ConnectionID);
 }
 
 // notify us when the bot is ready
 client.on('ready', () => {
 	console.log('I am ready!');
-	fs.mkdir(__dirname + '\\songs', {recursive: false} ,(err) =>  { 
-		if (err) { console.log('error when creating song folder: ' + err) };
+	fs.mkdir(__dirname + '\\songs', {recursive: false} ,(err) =>  {
+		if (err) { console.log('Retrying to empty song folder');
+			fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10}, err => {console.log(err)} );
+			fs.mkdir(__dirname + '\\songs', {recursive: false} ,(err) => {
+				if (err) { console.log('Failed to create empty song folder: continuing anyway: ' + err) }
+				else { console.log('Song folder emptied')}
+			});
+		} else { console.log('Song folder emptied') }
 	});
 });
 
 // is run when node js is stopped using CTRL-c
-process.on('SIGINT', function() {
+process.on('SIGINT', async function() {
 	console.log('Caught interrupt signal');
-	
-	// add stuff here
-	let deleteSongs = spawn('powershell', ['-c', 'Remove-Item -Recurse -Force ' + __dirname + '\\songs']);
-	deleteSongs.on('close', code => {
-		console.log(code);
-		process.exit();
+
+	VoiceChannels.forEach( async (soundChannel) => {
+		await removeVoiceConnection(soundChannel.get('guild'));
 	});
+
+	// add stuff here
+	fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10}, err => {console.log(err)} );
+	process.exit();
 });
 
 client.on('message', async message => {
@@ -184,13 +194,13 @@ client.on('message', async message => {
 				let name;
 				let isVideo;
 				// check for new file type
-				if (args.length == 0) { 
-					message.reply('you need to provide a new file type for the file'); 
-					return; 
+				if (args.length == 0) {
+					message.reply('you need to provide a new file type for the file');
+					return;
 				} else if (ffmpegVideoFormats.includes(args[0])) { isVideo = true;
 				} else if (ffmpegPictureFormats.includes(args[0])) { isVideo = false;
-				} else { 
-					message.reply('the first argument must be a valid file extension like mp4 or jpg'); 
+				} else {
+					message.reply('the first argument must be a valid file extension like mp4 or jpg');
 					return;
 				}
 				// check if user made a new name otherwise give it the old name
@@ -200,12 +210,12 @@ client.on('message', async message => {
 				// get the latest file
 				message.channel.messages.fetch({ limit: 10 })
 					.then(messages => {return messages.filter(m => m.attachments.first() && !m.author.bot);})
-					.then(messages => { 
+					.then(messages => {
 						if (!messages.first()) {message.reply('found no pictures or images 10 messages back, aborting');}
 						else {
 							messages.first().attachments.each(attachment => {
 								// Check for matching file type
-								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length-1].toLowerCase()
+								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length-1].toLowerCase();
 								if ((ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension)) && isVideo) {
 									message.reply('the latest attachment was a picture and you tried to convert it into a video, aborting');
 									return;
@@ -218,9 +228,9 @@ client.on('message', async message => {
 								// check for name
 								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join('.') + '.' + args[0];}
 								// convert the file
-								let file = `./${name}`
-								let ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name])
-								
+								let file = `./${name}`;
+								let ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name]);
+
 								ffmpeg.on('close', code => {
 									if (code == 0) {
 										console.log(attachment.url);
@@ -251,27 +261,7 @@ client.on('message', async message => {
 			}
 			// testbot test
 			case 'test' : {
-				/* https.get('https://www.youtube.com/watch?v=HyeIaosplcw', (test) => {
-					console.log(test)
-				}); */
-				let fileName = __dirname + '\\' + message.guild.id;
-				// .%(ext)s is necessary so youtube-dl does not complain about downloading and extracting audio to the same place
-				let ytdl = spawn('youtube-dl', ['https://www.youtube.com/watch?v=HyeIaosplcw', '-x', '-o', fileName + '.%(ext)s']);
-				ytdl.on('close', code => {
-					if (code == 0) {
-						console.log('all good');
-						connection = VoiceChannels.get(message.guild.id).get('connection');
-						console.log(fileName)
-						const stream = fileName + '.opus'
-						const audio = connection.play(
-							stream, 
-							{volume: false, StreamType: 'converted'} 
-						);
-					} else {
-						console.log('ytdl exited with error code: ' + code)
-						fs.unlink('fileName', err => { if (err) {console.error('An error occurred:\n', err)} })
-					}
-				});
+				
 				break;
 			}
 			// Just add any case commands if you want to..
@@ -332,12 +322,12 @@ client.on('message', async message => {
 					console.log('added voice channel:\n' + ConnectionID);
 				}
 				connection = VoiceChannels.get(ConnectionID).get('connection');
-				let soundChannel = VoiceChannels.get(ConnectionID)
+				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (args.length == 0) {
 					message.reply('you must give at least one word as an argument to search for a video');
 					break;
 				}
-				args = args.join(' ').split('@')
+				args = args.join(' ').split('@');
 				const searchQuery = args[0];
 				let start = 0;
 				if (!isNaN(args[1])){
@@ -352,7 +342,7 @@ client.on('message', async message => {
 					message.reply('your song is now queued');
 					return;
 				} else {
-					playMusic(ConnectionID, videoInfo.url, videoInfo, start, message.channel)
+					playMusic(ConnectionID, videoInfo.url, videoInfo, start, message.channel);
 				}
 				break;
 			}
@@ -403,7 +393,7 @@ client.on('message', async message => {
 								audio.resume();
 								soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
 								soundChannel.set('pauseStarted', 0); // reset just to be sure
-								console.log(getTimestamp)
+								console.log(getTimestamp);
 								console.log('resumed voice channel: ' + ConnectionID);
 							} else { message.reply('the bot is already playing'); }
 						} else { message.reply('the bot is not playing anything right now'); }
@@ -420,12 +410,12 @@ client.on('message', async message => {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
 						let audio = soundChannel.get('playing');
 						if (audio) {
+							soundChannel.get('eventHandler').emit('killffmpeg');
 							if(soundChannel.get('queue').length > 0){
+								filename = soundChannel.get('playing');
 								soundChannel.set('playing', false);
-								filename = __dirname + '\\songs\\' + soundChannel.get('guild') + '.opus'
 								soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, message.channel);
-
-							} else { 
+							} else {
 								connection = soundChannel.get('connection')
 								connection.play('');
 								soundChannel.set('playing', false);
@@ -469,8 +459,8 @@ client.on('message', async message => {
 						const playing = soundChannel.get('playing');
 						if (playing) {
 
-							const fileName = playing
-							setupSound(soundChannel, fileName, args[0], message.channel)
+							const fileName = playing;
+							setupSound(soundChannel, fileName, args[0], message.channel);
 
 						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
@@ -496,7 +486,7 @@ client.on('message', async message => {
 
 			// soundbot test
 			case 'test' : {
-				message.reply("test")				
+				message.reply("test");
 			}
 
 			// Just add any case commands if you want to..
@@ -523,85 +513,116 @@ function queue(ConnectionID, url, info, start, channel) {
 async function playMusic(ConnectionID, url, info, start, channel) {
 
 	const soundChannel = VoiceChannels.get(ConnectionID);
-	
+
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
 
-	let fileName = __dirname + '\\songs\\' + soundChannel.get('guild')+'.opus';
+	let fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild')+'.opus';
 
-	connection = soundChannel.get('connection')
+	// Delete previous file if found
+	deleteFile(fileName);
 
-	// Has to contain ' "STRING" ' or else it will not run on cmd.exe shell
-	let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"'
+	// Increment file number and update file name
+	// This should mean that we allways have a clean file for ffmpeg
+	soundChannel.set('fileNumber', soundChannel.get('fileNumber') + 1);
+
+	fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild')+'.opus';
+
+	// Has to contain " or else it will not run on the cmd.exe shell
+	let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
 	let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], {shell: 'cmd.exe'});
 	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', fileName], {shell: 'cmd.exe'});
 
 	/* -------YTDL EVENTS------- */
 	ytdl.on('error', async error => { console.log('error: ' + error) });
 	ytdl.stdout.on('data', async data => { ffmpeg.stdin.write(data); }); // Writes data to ffmpeg
-	ytdl.stderr.on('data', async data => { console.log( `ytdl: stderr: ${data}`) });
+	const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
+	const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
+	ytdl.stderr.on('data', async data => {
+ 
+		if (reDownSpeed[Symbol.match](`${data}`) !== null && reSpeed[Symbol.match](`${data}`) !== null ) {
+			console.log( `ytdl: stderr: ${data}`)
+			if (parseInt(reSpeed[Symbol.match](`${data}`)[0].substring(3), 10) < 100) { // we are being ratelimmited
+				console.log( `${ConnectionID} was rate limmited trying again`)
+				//process.exit();
+				InjectSong(ConnectionID, url, info, start, channel); // playMusic would send it to the back of the queue
+				soundChannel.get('eventHandler').emit('SongOver', soundChannel, fileName, channel);
+			}
+		}
+	}); // messages from ytdl
 
 	ytdl.on('close', (code) => {
-		if (code !== 0) { console.log(`ytdl process exited with code ${code}`); }
+		console.log(`ytdl process exited with code ${code}`);
 		ffmpeg.stdin.end(); // lets ffmpeg end
 	});
 
 	/* ------FFMPEG EVENTS------ */
+
 	// Used to registre when ffmpeg starts filling up the file
-	const ffmpegEmitter = new EventEmitter();
+	const ffmpegEmitter = soundChannel.get('eventHandler');
+	// Find how much we have written to file
+	const reWritten = /me=[:\d]*/;
+	let written = 0;
 	// check when the audio file has some data
 	ffmpeg.stderr.on('data', async data => {
 		if (`${data}`.startsWith('size=')) { 
-			// implement some regex that can fetch the amount of video ffmpeg 
-			// has downloaded and wait untill it has downloaded more than
-			// 'start' seconds
-			ffmpegEmitter.emit('ready');
-			console.log( `ffmpeg: stderr: ${data}`);
+			written = reWritten[Symbol.match](`${data}`)[0].substring(3);
+			written = written.split(':');
+			written = parseInt(written[0], 10)*3600 + parseInt(written[1], 10)*60 + parseInt(written[2], 10);
+			// once we have enough start the song (We must have at least 5)
+			if (written > start && written > minimumWritten) { ffmpegEmitter.emit('fileReady'); } 
+			//console.log( `ffmpeg: stderr: ${data}`);
 		}
+		//console.log( `ffmpeg: stderr: ${data}`);
 	});
-	ffmpeg.on('close', (code) => { if (code !== 0) { console.log(`ffmpeg process exited with code ${code}`); } });
+	ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code}`); });
 
-	ffmpegEmitter.once('ready', () => {
-		setupSound(soundChannel, fileName, start, channel)
+	ffmpegEmitter.once('fileReady', () => {
+		//console.log('now playing file --------------------------------')
+		setupSound(soundChannel, fileName, start, channel);
+	});
+	// When skipping kill ffmpeg if it is still running to save resources
+	ffmpegEmitter.on('killffmpeg', async () => {
+		if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
+		if (ffmpeg.exitCode == null) { ffmpeg.kill(); }
 	});
 	/* ------------------------- */
 
-	soundChannel.set('playing', fileName + '.opus');
+	soundChannel.set('playing', fileName);
 	soundChannel.set('ended', false);
 	soundChannel.set('videoLength', info.length);
-	soundChannel.set('pauseStarted', 0)
-	soundChannel.set('pausedTime', 0)
-	soundChannel.set('currentVideoInfo', info)
+	soundChannel.set('pauseStarted', 0);
+	soundChannel.set('pausedTime', 0);
+	soundChannel.set('currentVideoInfo', info);
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
-
 }
 
 function setupSound(soundChannel, filename, start, channel) {
-	
-	connection = soundChannel.get('connection')
+
+	connection = soundChannel.get('connection');
 	soundChannel.set('timeStarted', getTime());
 
-	const stream = fs.createReadStream(filename)
-	console.log(filename)
+	const stream = fs.createReadStream(filename);
+	console.log(filename);
 	const audio = connection.play(
 		stream, 
-		{	
-			seek: start, 
-			StreamType: 'opus', 
+		{
+			seek: start,
+			StreamType: 'opus',
 			highWaterMark: 16384,
 			bitrate: 'auto',
 			volume: false
 		}
 	);
 
-	soundChannel.set('audio', audio)
-	
+	soundChannel.set('audio', audio);
+
 	audio.on('finish', function () {
 		soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
 	});
 }
 
-let filename = "assets/DefaultSearch.txt"
+let filename = "assets/DefaultSearch.txt";
 async function getDefaultSearchQuery() {
 	defaultSearchQuery = new Promise(function(resolve) {
 		fs.readFile(filename, 'utf8', function(err, data) {
@@ -613,38 +634,33 @@ async function getDefaultSearchQuery() {
 	return defaultSearchQuery
 }
 
-// gets video link from search query 
-
+// gets video link from search query
 async function getVideoLink(searchQuery) {
 	if (!searchQuery) {
 		searchQuery = await getDefaultSearchQuery()
 	}
 	let videoId = "";
 	let video = new Promise(function(resolve) {
-		let wholeDocument = new MyEmitter 
+		let wholeDocument = new MyEmitter;
 		https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
-			let documentBody = ""
+			let documentBody = "";
 			res.on('data', (data) => {
 				documentBody += data;
 				if (data.slice(data.length-7) == "</html>") {wholeDocument.emit("got", documentBody)}
 			});
 		});
-		
+
 		wholeDocument.on("got", (data) => {
-			/*
-			console.log(data)
+
 			// Create regex patterns
-			const reInformation = /"videoId":.*?(?=,"acc)/g
-			*/
 			const reInformation = /"videoId":.*?,"vi/;
-			//const reID = /"videoId":"\w*?"/g;     Not currently used
 			const reThumbnail = /(?<="thumbnails":\[).*?(?=\])/;
 			const reTitle = /(?<="title":\{"runs":\[\{"text":").*?(?="\}\])/;
 			const reLength = /(?<=}},"simpleText":")[\d\.]+/;
 
 			// we extract a snippet of the whole document containing the relevant information about the video
 			let result = reInformation[Symbol.match](data);
-			
+
 			if (result != null) {
 				// extracts the video ID and adds it to the link
 				videoId = result[0].slice(11,22);
@@ -655,21 +671,21 @@ async function getVideoLink(searchQuery) {
 				tempThumbnail = reThumbnail[Symbol.match](result[0])[0].split(',');
 				videoThumbnailLink = tempThumbnail[tempThumbnail.length-3].slice(8).slice(0,-1);
 				// extracts the video length
-				
+
 				tempLength = reLength[Symbol.match](result[0])[0].split('.');
 				let time = 0;
 				if ( tempLength.length == 3 ) { time = parseInt(tempLength[0], 10)*3600 + parseInt(tempLength[1], 10)*60 + parseInt(tempLength[2], 10); }
 				else 															 { time = parseInt(tempLength[0], 10)*60 + parseInt(tempLength[1], 10); }
-				
+
 				// we pack the video info nice and tidy
 				let video = {
 					url: videoLink,
 					title: videoTitle,
 					thumbnail: videoThumbnailLink,
 					length: time
-				}
-				resolve(video)
-			} 
+				};
+				resolve(video);
+			}
 			//process.stdout.write(data);
 		});
 	});
@@ -684,17 +700,6 @@ function youtubeEmbed(url, videoInfo) {
 		.addField('Video name', videoInfo.title)
 		.addField('link:', url, true);
 	return embed;
-}
-
-// used to get the file extensions of files created by youtube-dl
-async function getExtensionOfGuildSound(guildID) {
-	const fileName = __dirname + '\\songs\\';
-	const dir = await fs.promises.opendir(fileName);
-	for await (const file of dir) {
-		if (file.name.split('.')[0] == guildID); {
-			return '.' + file.name.split('.')[1]
-		}
-	}
 }
 
 function timestampEmbed(soundChannel) {
@@ -712,4 +717,40 @@ function timestampEmbed(soundChannel) {
 
 function getTimestamp(soundChannel) { 
 	return parseInt(getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime'));
+}
+
+async function deleteFile(filename) {
+	let exists = await fsprom.access(filename)
+		.then( () => { return true; } )
+		.catch( err => {
+			if (err.code !== 'ENOENT') {
+				console.log( `unexpected error when checking for song file:\n${err}\nTrying to delete anyways`);
+				return true;
+			}
+			else if (err.code == 'ENOENT') {
+				console.log(`${filename} is already deleted`);
+				return false;
+			}
+	});
+	if (exists) {
+		fsprom.rm(filename, {force: true, maxRetries: 1000, recursive: true})
+		.catch( err => { 
+			console.log(`unexpected error when deleting for song file:\n${err}`);
+		})
+		.then( () => {
+			console.log(`Succesfully deleted ${filename}`);
+		});
+	}
+}
+
+// used privatly to inject a song to the first position in the queue silently
+function InjectSong(ConnectionID, url, info, start, channel) {
+	let soundChannel = VoiceChannels.get(ConnectionID);
+	let queueItem = new Collection();
+	queueItem.set('url', url);
+	queueItem.set('info', info);
+	queueItem.set('start', start);
+	queueItem.set('channel', channel);
+
+	soundChannel.get('queue').unshift(queueItem);
 }
