@@ -74,13 +74,13 @@ async function addVoiceConnection(message) {
 	info.set('pauseStarted', 0);
 	info.set('videoLength', 0);
 	info.set('pausedTime', 0);
+	info.set('seeked', 0)
 
 	console.log(info.get('guild'));
 	VoiceChannels.set(info.get('guild'), info); // The guild id is used to uniquely identify each server
 
 	info.get('eventHandler').on('SongOver', async function PlayNextSong(soundChannel, filename, channel) {
-		console.log(filename);
-		console.log('Song stopped playing');
+		console.log(`${filename}: is done playing playing in: ${info.get('guild')}`);
 		soundChannel.set('playing', false);
 		let nextSongInfo = soundChannel.get('queue').shift();
 		if (nextSongInfo) {
@@ -88,7 +88,6 @@ async function addVoiceConnection(message) {
 		} else {
 			channel.send('The music queue is now empty');
 			await connection.play('');
-			//fs.truncate(filename, 0, err => { if (err) {console.error('An error occurred while deleting a file 1:\n', err)} })
 		}
 
 	});
@@ -102,10 +101,16 @@ async function addVoiceConnection(message) {
 
 // removing a voice connection
 async function removeVoiceConnection(ConnectionID) {
-	let soundChannel = VoiceChannels.get(ConnectionID);
-	await soundChannel.get('connection').disconnect();
-	soundChannel.get('eventHandler').emit('killffmpeg');
-	VoiceChannels.delete(ConnectionID);
+	return new Promise(async resolve => {
+		let soundChannel = VoiceChannels.get(ConnectionID);
+		await soundChannel.get('connection').play('')
+		await soundChannel.get('connection').disconnect();
+		soundChannel.get('eventHandler').emit('killffmpeg');
+		soundChannel.get('eventHandler').on('killedffmpeg', () => {
+			VoiceChannels.delete(ConnectionID);
+			resolve(true); // Signal that we are done
+		});
+	}); // promise ends
 }
 
 // notify us when the bot is ready
@@ -131,7 +136,12 @@ process.on('SIGINT', async function() {
 	});
 
 	// add stuff here
-	fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10}, err => {console.log(err)} );
+
+	//doesn't work implement other function
+	fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10});
+
+	// This should always run last
+	// Make sure everything before this is done executing or it might not finish
 	process.exit();
 });
 
@@ -265,6 +275,10 @@ client.on('message', async message => {
 				break;
 			}
 			// Just add any case commands if you want to..
+
+			default : {
+				message.reply(`${args[0]} is not a command`)
+			}
 		}
 	}
 
@@ -490,6 +504,10 @@ client.on('message', async message => {
 			}
 
 			// Just add any case commands if you want to..
+
+			default : {
+				message.reply(`${args[0]} is not a soundcommand`)
+			}
 		}
 	}
 });
@@ -537,8 +555,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	ytdl.stdout.on('data', async data => { ffmpeg.stdin.write(data); }); // Writes data to ffmpeg
 	const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
 	const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
-	ytdl.stderr.on('data', async data => {
- 
+	ytdl.stderr.on('data', async data => { // messages from ytdl
 		if (reDownSpeed[Symbol.match](`${data}`) !== null && reSpeed[Symbol.match](`${data}`) !== null ) {
 			console.log( `ytdl: stderr: ${data}`)
 			if (parseInt(reSpeed[Symbol.match](`${data}`)[0].substring(3), 10) < 100) { // we are being ratelimmited
@@ -548,7 +565,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 				soundChannel.get('eventHandler').emit('SongOver', soundChannel, fileName, channel);
 			}
 		}
-	}); // messages from ytdl
+	}); 
 
 	ytdl.on('close', (code) => {
 		console.log(`ytdl process exited with code ${code}`);
@@ -583,7 +600,15 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	// When skipping kill ffmpeg if it is still running to save resources
 	ffmpegEmitter.on('killffmpeg', async () => {
 		if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
-		if (ffmpeg.exitCode == null) { ffmpeg.kill(); }
+		if (ffmpeg.exitCode == null) { 
+			ffmpeg.kill()
+			.then(() => {
+				ffmpegEmitter.emit('killedffmpeg')
+			})
+			.catch(err => {
+				console.log(`error when killing ffmpeg in: ${ConnectionID}:\n${err}`)
+			});
+		}
 	});
 	/* ------------------------- */
 
@@ -601,6 +626,7 @@ function setupSound(soundChannel, filename, start, channel) {
 
 	connection = soundChannel.get('connection');
 	soundChannel.set('timeStarted', getTime());
+	soundChannel.set('seeked', start*1000)
 
 	const stream = fs.createReadStream(filename);
 	console.log(filename);
@@ -704,6 +730,39 @@ function youtubeEmbed(url, videoInfo) {
 
 function timestampEmbed(soundChannel) {
 	let info = soundChannel.get('currentVideoInfo');
+	let videoLength = info.length;
+	let time = Math.floor(getTimestamp(soundChannel)/1000);
+	console.log(time)
+	console.log(Math.floor(videoLength))
+	let timestr = '';
+	let timestrtmp = '';
+	let tmp;
+	// hours
+	if (videoLength >= 3600) {
+		tmp = Math.round(time / 3600) ;
+		timestr += _TimestampFormat(tmp) + ':';
+		time -= 3600 * tmp;
+
+		tmp = Math.round(videoLength / 3600);
+		timestrtmp += _TimestampFormat(tmp) + ':';
+		videoLength -= 3600 * tmp;
+	}
+
+	// minutes
+	tmp = Math.round(time / 60);
+	timestr += _TimestampFormat(tmp) + ':';
+	time -= 60 * tmp;
+
+	tmp = Math.round(videoLength / 60);
+	timestrtmp += _TimestampFormat(tmp) + ':';
+	videoLength -= 60 * tmp;
+
+	//seconds
+	timestr += _TimestampFormat(Math.round(time));
+	timestrtmp += _TimestampFormat(Math.round(videoLength));
+
+	timestr += ' / ' + timestrtmp;
+
 
 	const embed = new MessageEmbed()
 		.setColor('#FF0000')
@@ -711,12 +770,22 @@ function timestampEmbed(soundChannel) {
 		.setThumbnail(info.thumbnail)
 		.addField('Video name', info.title)
 		.addField('link:', info.url, true)
-		.setDescription( getTimestamp(soundChannel)/1000 + ':' + info.length );
+		.setDescription( timestr );
 	return embed;
 }
 
+function _TimestampFormat(time) {
+	let timestr = ''
+	if (time < 10) {
+		timestr += '0' + time
+	} else {
+		timestr += time
+	}
+	return timestr;
+}
+
 function getTimestamp(soundChannel) { 
-	return parseInt(getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime'));
+	return parseInt(getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked'));
 }
 
 async function deleteFile(filename) {
