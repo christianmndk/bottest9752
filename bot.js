@@ -489,20 +489,21 @@ client.on('message', async message => {
 								} else { message.reply('the queue does not contain any songs in that range'); }
 							// more than two arguments
 							} else {
-								console.log(args.length + ' ' + args.join(' '))
-								let notRemoved = '';
-								args.forEach( arg => {
-									if (queue.length >= +arg) {
-										queue.splice(+arg - 1, 1);
+								console.log(args.length + ' ' + args.join(' '));
+								let removed = 0;
+								let notRemoved = [];
+								for (let i = 0; i < args.length; i++) {
+									if (queue.length >= +arg[i]) {
+										queue.splice(+arg[i] - 1 - removed, 1);
+										removed += 1;
 									} else {
-										notRemoved += arg + ', '; 
+										notRemoved.push(args[i]); 
 									}
-								});
+								}
 								if (notRemoved == '') {
 									message.reply(`removed songs at positions: ${args.join(', ')}`);
 								} else {
-									notRemoved = notRemoved.substring(0, notRemoved.length-2)
-									message.reply(`tried to remove songs at positions: ${args.join(', ')} but the queue did not contain songs at positions: ${notRemoved}`);
+									message.reply(`tried to remove songs at positions: ${args.join(', ')} but the queue did not contain songs at positions: ${notRemoved.join(', ')}`);
 								}
 							}
 						} else { message.reply('the queue is empty'); }
