@@ -40,8 +40,8 @@ class MyEmitter extends EventEmitter {};
 const client = new Client();
 
 // Create some constants
-const minimumWritten = 5; // create a little buffer before we start streaming
-const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rawvideo','rm','tta','v64','wav','webm','wv'];
+const minimumWritten = 30; // create a little buffer before we start streaming
+const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rm','tta','v64','wav','webm','wv'];
 const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp'];
 // Only for raw image files that can be converted to something else
 const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2'];
@@ -138,7 +138,7 @@ process.on('SIGINT', async function() {
 	// add stuff here
 
 	//doesn't work implement other function
-	fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10});
+	//fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10});
 
 	// This should always run last
 	// Make sure everything before this is done executing or it might not finish
@@ -170,7 +170,7 @@ client.on('message', async message => {
 			}
 			// testbot webm
 			case 'webm': {
-				if (message.attachments.first()) {
+				if (!message.attachments.first()) {
 					message.reply('the command \'webm\' requires a webm attachment sent with the message');
 					break;
 				}
@@ -277,7 +277,7 @@ client.on('message', async message => {
 			// Just add any case commands if you want to..
 
 			default : {
-				message.reply(`${args[0]} is not a command`)
+				message.reply(`${cmd} is not a command`)
 			}
 		}
 	}
@@ -293,9 +293,10 @@ client.on('message', async message => {
 				return;
 			}
 		} else {
-			message.reply('you must be in a voice channel to use that command');
+			message.reply(`you can only use this command in a guild`);
 			return;
 		}
+		let ConnectionID = message.guild.id;
 		var args = message.content.substring(9).split(' ');
 		var cmd = args[0];
 		args = args.splice(1);
@@ -309,7 +310,6 @@ client.on('message', async message => {
 
 			// soundbot join
 			case 'join' : {
-				let ConnectionID = message.guild.id;
 				// check if we are already in a voice channel in that guild
 				if (!VoiceChannels.has(ConnectionID)){
 					await addVoiceConnection(message);
@@ -325,7 +325,6 @@ client.on('message', async message => {
 
 			// soundbot play
 			case 'play' : {
-				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)){
 					if (!(VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
 						message.reply('You must be in the same voice channel as the bot to use this command');
@@ -363,7 +362,6 @@ client.on('message', async message => {
 
 			// soundbot leave
 			case 'leave' : {
-				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
@@ -377,7 +375,6 @@ client.on('message', async message => {
 
 			// soundbot pause
 			case 'pause' : {
-				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let soundChannel = VoiceChannels.get(ConnectionID);
@@ -397,7 +394,6 @@ client.on('message', async message => {
 
 			// soundbot resume
 			case 'resume' : {
-				let ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let soundChannel = VoiceChannels.get(ConnectionID);
@@ -418,7 +414,6 @@ client.on('message', async message => {
 
 			// soundbot skip
 			case 'skip' : {
-				let ConnectionID = message.guild.id;
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (VoiceChannels.has(ConnectionID)) {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
@@ -443,7 +438,7 @@ client.on('message', async message => {
 
 			// soundbot queue
 			case 'queue' : {
-				let ConnectionID = message.guild.id;
+
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (soundChannel.get('queue').length > 0) {
 					let embed = new MessageEmbed()
@@ -453,13 +448,72 @@ client.on('message', async message => {
 						embed.addField(song.get('info').title, song.get('url'));
 					});
 					message.channel.send(embed);
-				} else ( message.reply('the queue is empty'))
+				} else { message.reply('the queue is empty'); }
+				break;
+			}
+
+			case 'remove' : {
+				if (args.length == 0) {
+					message.reply('you must suply atleast one number after remove');
+				}
+				for (let i = 0; i < args.length; i++) {
+					if (isNaN(args[i])) {
+						return;
+					}
+				}
+			
+				let soundChannel = VoiceChannels.get(ConnectionID);
+				if (VoiceChannels.has(ConnectionID)) {
+					if (soundChannel.get('id') == message.member.voice.channel.id) {
+						if (soundChannel.get('queue').length > 0) {
+							let queue = soundChannel.get('queue')
+							// one argument
+							if (args.length == 1) {
+								console.log(args.length + ' ' + args[0])
+								if (queue.length >= +args[0]) {
+									queue.splice(+args[0] - 1, 1); // the first item is not at the first index
+								} else { message.reply('the queue does not have a song at that position'); }
+							// two arguments
+							} else if (args.length == 2) {
+								console.log(args.length + ' ' + args[0] + ' ' + args[1])
+								if (args[0] > args[1]) {
+									let tmp = args[0];
+									args[0] = args[1];
+									args[1] = tmp;
+								}
+								if (queue.length >= +args[0]) {
+									if (queue.length < +args[1]) {
+										message.reply(`removing all songs after ${args[0]}`);
+									}
+									queue.splice(+args[0] - 1, +args[1] - +args[0]);
+								} else { message.reply('the queue does not contain any songs in that range'); }
+							// more than two arguments
+							} else {
+								console.log(args.length + ' ' + args.join(' '))
+								let notRemoved = '';
+								args.forEach( arg => {
+									if (queue.length >= +arg) {
+										queue.splice(+arg - 1, 1);
+									} else {
+										notRemoved += arg + ', '; 
+									}
+								});
+								if (notRemoved == '') {
+									message.reply(`removed songs at positions: ${args.join(', ')}`);
+								} else {
+									notRemoved = notRemoved.substring(0, notRemoved.length-2)
+									message.reply(`tried to remove songs at positions: ${args.join(', ')} but the queue did not contain songs at positions: ${notRemoved}`);
+								}
+							}
+						} else { message.reply('the queue is empty'); }
+					} else { message.reply('you must be in the same channel as the bot to use that command'); }
+				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
 
 			case 'seek' : {
-
-				if (!isNaN(args[0])){
+				let start = 0;
+				if (!isNaN(args[0])) {
 					start = +args[0];
 				} else {
 					message.reply('you must suply a number after seek');
@@ -506,7 +560,7 @@ client.on('message', async message => {
 			// Just add any case commands if you want to..
 
 			default : {
-				message.reply(`${args[0]} is not a soundcommand`)
+				message.reply(`${cmd} is not a soundcommand`)
 			}
 		}
 	}
@@ -528,11 +582,12 @@ function queue(ConnectionID, url, info, start, channel) {
 	soundChannel.get('queue').push(queueItem);
 }
 
-async function playMusic(ConnectionID, url, info, start, channel) {
+async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXtimes=0) {
 
 	const soundChannel = VoiceChannels.get(ConnectionID);
 
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
+	console.log(`Rate limited ${ratelimmitedXtimes} times`)
 
 	let fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild')+'.opus';
 
@@ -548,7 +603,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	// Has to contain " or else it will not run on the cmd.exe shell
 	let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
 	let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], {shell: 'cmd.exe'});
-	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', fileName], {shell: 'cmd.exe'});
+	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '256k', fileName], {shell: 'cmd.exe'});
 
 	/* -------YTDL EVENTS------- */
 	ytdl.on('error', async error => { console.log('error: ' + error) });
@@ -556,15 +611,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
 	const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
 	ytdl.stderr.on('data', async data => { // messages from ytdl
-		if (reDownSpeed[Symbol.match](`${data}`) !== null && reSpeed[Symbol.match](`${data}`) !== null ) {
-			console.log( `ytdl: stderr: ${data}`)
-			if (parseInt(reSpeed[Symbol.match](`${data}`)[0].substring(3), 10) < 100) { // we are being ratelimmited
-				console.log( `${ConnectionID} was rate limmited trying again`)
-				//process.exit();
-				InjectSong(ConnectionID, url, info, start, channel); // playMusic would send it to the back of the queue
-				soundChannel.get('eventHandler').emit('SongOver', soundChannel, fileName, channel);
-			}
-		}
+		console.log( `ytdl: stderr: ${data}`)
 	}); 
 
 	ytdl.on('close', (code) => {
@@ -586,7 +633,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 			written = written.split(':');
 			written = parseInt(written[0], 10)*3600 + parseInt(written[1], 10)*60 + parseInt(written[2], 10);
 			// once we have enough start the song (We must have at least 5)
-			if (written > start && written > minimumWritten) { ffmpegEmitter.emit('fileReady'); } 
+			if ((written > start || written > minimumWritten) || written >= soundChannel.get('videoLength')/1000) { ffmpegEmitter.emit('fileReady'); } 
 			//console.log( `ffmpeg: stderr: ${data}`);
 		}
 		//console.log( `ffmpeg: stderr: ${data}`);
@@ -614,10 +661,11 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 
 	soundChannel.set('playing', fileName);
 	soundChannel.set('ended', false);
-	soundChannel.set('videoLength', info.length);
+	soundChannel.set('videoLength', info.length*1000);
 	soundChannel.set('pauseStarted', 0);
 	soundChannel.set('pausedTime', 0);
 	soundChannel.set('currentVideoInfo', info);
+
 	embed = youtubeEmbed(url, info);
 	channel.send(embed);
 }
@@ -660,6 +708,8 @@ async function getDefaultSearchQuery() {
 	return defaultSearchQuery
 }
 
+function test(data) { return true; }
+
 // gets video link from search query
 async function getVideoLink(searchQuery) {
 	if (!searchQuery) {
@@ -672,33 +722,41 @@ async function getVideoLink(searchQuery) {
 			let documentBody = "";
 			res.on('data', (data) => {
 				documentBody += data;
+				
 				if (data.slice(data.length-7) == "</html>") {wholeDocument.emit("got", documentBody)}
+
 			});
 		});
 
-		wholeDocument.on("got", (data) => {
+		wholeDocument.on("got", async (data) => {
 
 			// Create regex patterns
-			const reInformation = /"videoId":.*?,"vi/;
+			const rePlaylist = /","playlistId":"/;
+			const reInformation = /"videoId":.*?,"vi/g;
 			const reThumbnail = /(?<="thumbnails":\[).*?(?=\])/;
 			const reTitle = /(?<="title":\{"runs":\[\{"text":").*?(?="\}\])/;
 			const reLength = /(?<=}},"simpleText":")[\d\.]+/;
-
-			// we extract a snippet of the whole document containing the relevant information about the video
-			let result = reInformation[Symbol.match](data);
-
+			
+			// We extract a snippet of the whole document containing the relevant information about the video and loop through them until it is not a playlist
+			let result = reInformation[Symbol.match](data)[0];
+			let i = 1;
+			while (rePlaylist[Symbol.match](result)) {
+				result = reInformation[Symbol.match](data)[i];
+				i++;
+			}
+			
 			if (result != null) {
 				// extracts the video ID and adds it to the link
-				videoId = result[0].slice(11,22);
+				videoId = result.slice(11,22);
 				videoLink = "https://www.youtube.com/watch?v=" + videoId;
 				// extracts the title of the video
-				videoTitle = reTitle[Symbol.match](result[0])[0];
+				videoTitle = reTitle[Symbol.match](result)[0];
 				// extracts the thumbnail link of highest quality
-				tempThumbnail = reThumbnail[Symbol.match](result[0])[0].split(',');
+				tempThumbnail = reThumbnail[Symbol.match](result)[0].split(',');
 				videoThumbnailLink = tempThumbnail[tempThumbnail.length-3].slice(8).slice(0,-1);
 				// extracts the video length
 
-				tempLength = reLength[Symbol.match](result[0])[0].split('.');
+				tempLength = reLength[Symbol.match](result)[0].split('.');
 				let time = 0;
 				if ( tempLength.length == 3 ) { time = parseInt(tempLength[0], 10)*3600 + parseInt(tempLength[1], 10)*60 + parseInt(tempLength[2], 10); }
 				else 															 { time = parseInt(tempLength[0], 10)*60 + parseInt(tempLength[1], 10); }
@@ -739,30 +797,29 @@ function timestampEmbed(soundChannel) {
 	let tmp;
 	// hours
 	if (videoLength >= 3600) {
-		tmp = Math.round(time / 3600) ;
+		tmp = Math.floor(time / 3600) ;
 		timestr += _TimestampFormat(tmp) + ':';
 		time -= 3600 * tmp;
 
-		tmp = Math.round(videoLength / 3600);
+		tmp = Math.floor(videoLength / 3600);
 		timestrtmp += _TimestampFormat(tmp) + ':';
 		videoLength -= 3600 * tmp;
 	}
 
 	// minutes
-	tmp = Math.round(time / 60);
+	tmp = Math.floor(time / 60);
 	timestr += _TimestampFormat(tmp) + ':';
 	time -= 60 * tmp;
 
-	tmp = Math.round(videoLength / 60);
+	tmp = Math.floor(videoLength / 60);
 	timestrtmp += _TimestampFormat(tmp) + ':';
 	videoLength -= 60 * tmp;
 
 	//seconds
-	timestr += _TimestampFormat(Math.round(time));
-	timestrtmp += _TimestampFormat(Math.round(videoLength));
+	timestr += _TimestampFormat(Math.floor(time));
+	timestrtmp += _TimestampFormat(Math.floor(videoLength));
 
 	timestr += ' / ' + timestrtmp;
-
 
 	const embed = new MessageEmbed()
 		.setColor('#FF0000')
