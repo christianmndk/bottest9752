@@ -40,7 +40,7 @@ class MyEmitter extends EventEmitter {};
 const client = new Client();
 
 // Create some constants
-const minimumWritten = 30; // create a little buffer before we start streaming
+const minimumWritten = 3; // create a little buffer before we start streaming
 const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rm','tta','v64','wav','webm','wv'];
 const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp'];
 // Only for raw image files that can be converted to something else
@@ -66,6 +66,7 @@ async function addVoiceConnection(message) {
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
 	info.set('audio');
+	info.set('songTimeout') // backup incase the audio does not emit a 'finish' event
 	info.set('fileNumber', 0);
 	info.set('eventHandler', new EventEmitter());
 	info.set('currentVideoInfo');
@@ -82,6 +83,7 @@ async function addVoiceConnection(message) {
 	info.get('eventHandler').on('SongOver', async function PlayNextSong(soundChannel, filename, channel) {
 		console.log(`${filename}: is done playing playing in: ${info.get('guild')}`);
 		soundChannel.set('playing', false);
+		clearTimeout(soundChannel.get('songTimeout')); // Clear next song back up to be sure
 		let nextSongInfo = soundChannel.get('queue').shift();
 		if (nextSongInfo) {
 			playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
@@ -91,7 +93,7 @@ async function addVoiceConnection(message) {
 		}
 
 	});
-	info.get('eventHandler').on('Shutdown',async function disconnectShutdown() { 
+	info.get('eventHandler').on('Shutdown', async function disconnectShutdown() { 
 		await removeVoiceConnection(info.get('guild'));
 		console.log('removed voice channel: ' + info.get('guild'));
 	});
@@ -259,9 +261,9 @@ client.on('message', async message => {
 					});
 				break;
 			}
-			//testbot jslat
-			case 'jslat' : {
-				stupidcommands.Jslat(message, args);
+			//testbot jschlatt
+			case 'jschlatt' : {
+				stupidcommands.Jschlatt(message, args);
 				break;
 			}
 			// testbot spotify
@@ -274,10 +276,96 @@ client.on('message', async message => {
 				
 				break;
 			}
+
+			case 'help' : {
+				const embed = new MessageEmbed()
+					.setColor('#0000FF')
+
+				if (args.length == 0) {
+					embed
+						.setTitle('testbot commands')
+						.addField('Help', 'Use testbot help [function] to get more detailed help on the functions')
+						.addField('Conversion', 'webm\nconvert')
+						.addField('Fun', 'jschlatt\nspotify (experimental)')
+						.addField('Test', 'rip\nping\ntest');
+				}
+
+				let func = args[0]
+				switch (func) {
+					case 'rip' : {
+						embed
+						.addField('Execution', 'testbot rip')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Tests if the bot is working')
+						break;
+					}
+					case 'ping' : {
+						embed
+						.addField('Execution', 'testbot ping')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Pings the bot to see if it is running')
+						break;
+					}
+					case 'webm' : {
+						embed
+						.addField('Execution', 'testbot webm (filetype)')
+						.addField('Arguments', '1\nfiletype: the filetype to convert the webm into')
+						.addField('Explanation', 'Looks at your messages attachments and converts them into the desired filetype from a webm file if posible.\nThis commands can be slow');
+						break;
+					}
+					case 'convert' : {
+						embed
+						.addField('Execution', 'testbot convert (filetype)')
+						.addField('Arguments', '1\nfiletype: the filetype to convert the file into')
+						.addField('explanation', 'Looks 10 messages back and converts the first attachment it finds into the desired filetype if posible.\nThis commands can be slow');
+						break;
+					}
+					case 'jschlatt' : {
+						embed
+						.addField('Execution', 'testbot jschlatt (number)')
+						.addField('Arguments', '1\nnumber: the amount of names you want')
+						.addField('Explanation', 'Gives a list of (number) names that jschlatt has been called')
+						break;
+					}
+					case 'spotify' : {
+						embed
+						.addField('EXPERIMENTAL', 'THIS FUNCTION IS EXPERIMENTAL AND WILL LIKELY NOT WORK')
+						.addField('Execution', 'testbot spotify')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Sends an embed with information about the song you are listening to on spotify');
+						break;
+					}
+					case 'test' : {
+						embed
+						.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
+						.addField('Execution', 'testbot test')
+						.addField('Arguments', 'This commands most likely ignores all arguments')
+						.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
+						break;
+					}
+					case 'help' : {
+						embed
+						.addField('Execution', 'testbot help [function]')
+						.addField('Arguments', '0 or 1\nFunction: the function you want help with')
+						.addField('Explanation', `0 arguments: Prints a list of all testbot commands
+						1 argument: Gives detalied help on (function)`)
+						break;
+					}
+					default : {
+						if (func || func == '') { 
+							message.reply(`${func} is not a testbot command`);
+							return;
+						}
+					}
+				} 
+
+				message.channel.send(embed);
+				break;
+			}
 			// Just add any case commands if you want to..
 
 			default : {
-				message.reply(`${cmd} is not a command`)
+				message.reply(`${cmd} is not a testbot command`)
 			}
 		}
 	}
@@ -365,6 +453,7 @@ client.on('message', async message => {
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
+						connection.play('');
 						connection.disconnect();
 						removeVoiceConnection(ConnectionID);
 						console.log('removed voice channel: ' + ConnectionID);
@@ -375,13 +464,14 @@ client.on('message', async message => {
 
 			// soundbot pause
 			case 'pause' : {
+				message.reply('resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient')
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let soundChannel = VoiceChannels.get(ConnectionID);
 						let audio = soundChannel.get('audio');
 						if (audio) {
 							if (!audio.paused) {
-								//console.log(audio);
+								clearTimeout(soundChannel.get('songTimeout')); // Stop any timeouts
 								audio.pause();
 								soundChannel.set('pauseStarted', getTime());
 								console.log('paused voice channel: ' + ConnectionID);
@@ -394,17 +484,30 @@ client.on('message', async message => {
 
 			// soundbot resume
 			case 'resume' : {
+				message.reply('resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient')
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						let soundChannel = VoiceChannels.get(ConnectionID);
 						let audio = soundChannel.get('audio');
 						if (audio) {
 							if (audio.paused) {
+
+								// THIS SHOULD WORK BUT DOESNT NEEDS THE NEXT BIT OF CODE
 								audio.resume();
+
 								soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
-								soundChannel.set('pauseStarted', 0); // reset just to be sure
-								console.log(getTimestamp);
+								soundChannel.set('pauseStarted', 0); // Reset just to be sure
+								clearTimeout(soundChannel.get('songTimeout')); // Clear previous timeouts just to be sure
+								soundChannel.set('songTimeout', createSongTimeout(soundChannel)); // Create new timeout
+
+								// FIX THAT MAKES THINGS WORK BUT IS BAD
+								const fileName = soundChannel.get('playing');
+								setupSound(soundChannel, fileName, getTimestamp(soundChannel)/1000, message.channel);
+								// END OF FIX
+
+								console.log(getTimestamp(soundChannel));
 								console.log('resumed voice channel: ' + ConnectionID);
+
 							} else { message.reply('the bot is already playing'); }
 						} else { message.reply('the bot is not playing anything right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
@@ -429,7 +532,8 @@ client.on('message', async message => {
 								connection.play('');
 								soundChannel.set('playing', false);
 								soundChannel.set('ended', true);
-							 }
+							}
+							clearTimeout(soundChannel.get('songTimeout')); // Clear any timeouts we have
 						} else { message.reply('nothing is playing right now') ;}
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
@@ -452,6 +556,7 @@ client.on('message', async message => {
 				break;
 			}
 
+			// soundbot remove
 			case 'remove' : {
 				if (args.length == 0) {
 					message.reply('you must suply atleast one number after remove');
@@ -512,6 +617,7 @@ client.on('message', async message => {
 				break;
 			}
 
+			//soundbot seek
 			case 'seek' : {
 				let start = 0;
 				if (!isNaN(args[0])) {
@@ -521,7 +627,6 @@ client.on('message', async message => {
 					break;
 				}
 
-				const ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
 					const soundChannel = VoiceChannels.get(ConnectionID);
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
@@ -537,6 +642,7 @@ client.on('message', async message => {
 				break;
 			}
 
+			// soundbot timestamp
 			case 'timestamp' : {
 
 				const ConnectionID = message.guild.id;
@@ -556,10 +662,132 @@ client.on('message', async message => {
 			// soundbot test
 			case 'test' : {
 				message.reply("test");
+				break;
 			}
 
 			// Just add any case commands if you want to..
 
+			case 'help' : {
+				const embed = new MessageEmbed()
+					.setColor('#FF0000')
+
+				if (args.length == 0) {
+					embed
+						.setTitle('soundbot commands')
+						.addField('Help', 'Use soundbot help [function] to get more detailed help on the functions')
+						.addField('Music', 'join\nplay\nleave\npause\nresume\nskip\nremove\nseek')
+						.addField('Information', 'queue\ntimestamp')
+						.addField('Test', 'ping\ntest');
+				}
+
+				let func = args[0]
+				switch (func) {
+					case 'ping' : {
+						embed
+						.addField('Execution', 'soundbot ping')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Pings the bot to see if it is running')
+						break;
+					}
+					case 'join' : {
+						embed
+						.addField('Execution', 'soundbot join')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('explanation', 'Joins your current voicechannel\nthe \'play\' function does not need this command to be run first');
+						break;
+					}
+					case 'play' : {
+						embed
+						.addField('Execution', 'soundbot play (string) @[number]')
+						.addField('Arguments', `1 or 2
+						string: Space seperated search query to be searched for on youtube
+						(optional) number : The amount of seconds to skip of the video prefixed by '@'`)
+						.addField('Explanation', `Searches youtube for a video matching the search query
+						If a song is already playing the searched for video will be added to the queue
+						If seek is included the first [number] of seconds will be skipped`);
+						break;
+					}
+					case 'pause' : {
+						embed
+						.addField('WARNING', 'This commands is not functioning optimally, but still works as intended')
+						.addField('Execution', 'soundbot pause')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Pauses the currently playing song')
+						break;
+					}
+					case 'resume' : {
+						embed
+						.addField('WARNING', 'This commands is not functioning optimally, but still works as intended')
+						.addField('Execution', 'soundbot resume')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Resumes the currently paused song')
+						break;
+					}
+					case 'skip' : {
+						embed
+						.addField('Execution', 'soundbot skip')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Skips the currently playing song')
+						break;
+					}
+					case 'queue' : {
+						embed
+						.addField('Execution', 'soundbot queue')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Shows all items in the queue')
+						break;
+					}
+					case 'remove' : {
+						embed
+						.addField('Execution', 'soundbot remove (number) [number] [...]')
+						.addField('Arguments', '0, 1 or more\nnumber: position in the queue')
+						.addField('Explanation', `1 argument: Removes song at position (number)
+						(optional) 2 arguments: Removes all song in the queue between (number) and [number], but not [number]
+						(optional) more arguments: Removes songs at the specified positions in the queue`)
+						break;
+					}
+					case 'seek' : {
+						embed
+						.addField('Execution', 'soundbot seek (number)')
+						.addField('Arguments', '1\nnumber: Seek to this second in the currently playing song')
+						.addField('Explanation', 'Seeks to the (number)\'s second of the currently playing song')
+						break;
+					}
+					case 'timestamp' : {
+						embed
+						.addField('Execution', 'soundbot timestamp')
+						.addField('Arguments', 'This commands ignores all arguments')
+						.addField('Explanation', 'Sends an embed showing the current position in the song')
+						break;
+					}
+					case 'test' : {
+						embed
+						.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
+						.addField('Execution', 'soundbot test')
+						.addField('Arguments', 'This commands most likely ignores all arguments')
+						.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
+						break;
+					}
+					case 'help' : {
+						embed
+						.addField('Execution', 'soundbot help [function]')
+						.addField('Arguments', '0 or 1\nFunction: The function you want help with')
+						.addField('Explanation', `0 arguments: Prints a list of all soundbot commands
+						1 argument: Gives detalied help on (function)`)
+						break;
+					}
+					default : {
+						if (func || func == '') { 
+							message.reply(`${func} is not a testbot command`);
+							return;
+						}
+					}
+				} 
+
+				message.channel.send(embed);
+				break;
+			}
+			
 			default : {
 				message.reply(`${cmd} is not a soundcommand`)
 			}
@@ -604,7 +832,7 @@ async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXt
 	// Has to contain " or else it will not run on the cmd.exe shell
 	let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
 	let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], {shell: 'cmd.exe'});
-	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '256k', fileName], {shell: 'cmd.exe'});
+	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '128k', fileName], {shell: 'cmd.exe'});
 
 	/* -------YTDL EVENTS------- */
 	ytdl.on('error', async error => { console.log('error: ' + error) });
@@ -612,7 +840,9 @@ async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXt
 	const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
 	const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
 	ytdl.stderr.on('data', async data => { // messages from ytdl
-		console.log( `ytdl: stderr: ${data}`)
+		if (reDownSpeed[Symbol.match](`${data}`)) {
+			console.log( `ytdl: stderr: ${data}`);
+		}
 	}); 
 
 	ytdl.on('close', (code) => {
@@ -634,7 +864,7 @@ async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXt
 			written = written.split(':');
 			written = parseInt(written[0], 10)*3600 + parseInt(written[1], 10)*60 + parseInt(written[2], 10);
 			// once we have enough start the song (We must have at least 5)
-			if ((written > start || written > minimumWritten) || written >= soundChannel.get('videoLength')/1000) { ffmpegEmitter.emit('fileReady'); } 
+			if ((written > start && written > minimumWritten) || written >= soundChannel.get('videoLength')/1000) { ffmpegEmitter.emit('fileReady'); } 
 			//console.log( `ffmpeg: stderr: ${data}`);
 		}
 		//console.log( `ffmpeg: stderr: ${data}`);
@@ -660,11 +890,7 @@ async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXt
 	});
 	/* ------------------------- */
 
-	soundChannel.set('playing', fileName);
-	soundChannel.set('ended', false);
 	soundChannel.set('videoLength', info.length*1000);
-	soundChannel.set('pauseStarted', 0);
-	soundChannel.set('pausedTime', 0);
 	soundChannel.set('currentVideoInfo', info);
 
 	embed = youtubeEmbed(url, info);
@@ -675,7 +901,11 @@ function setupSound(soundChannel, filename, start, channel) {
 
 	connection = soundChannel.get('connection');
 	soundChannel.set('timeStarted', getTime());
-	soundChannel.set('seeked', start*1000)
+	soundChannel.set('seeked', start*1000);
+	soundChannel.set('pauseStarted', 0);
+	soundChannel.set('pausedTime', 0);
+	soundChannel.set('playing', filename);
+	soundChannel.set('ended', false);
 
 	const stream = fs.createReadStream(filename);
 	console.log(filename);
@@ -689,12 +919,36 @@ function setupSound(soundChannel, filename, start, channel) {
 			volume: false
 		}
 	);
-
+	
 	soundChannel.set('audio', audio);
+	// create backup for the 'finish' event so the bot doesn't stall
+	clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
+	soundChannel.set('songTimeout', createSongTimeout(soundChannel));
 
-	audio.on('finish', function () {
+	let songOver = false;
+
+	soundChannel.get('eventHandler').on('killSong', () => {
+		if (songOver) { return; }
+		console.log(`Song timed out in: ${soundChannel.get('guild')}\nkilling...`)
+		songOver = true;
 		soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
 	});
+
+	audio.on('finish', function () {
+		if (songOver) { return; }
+		songOver = true;
+		console.log(`Audio finish event triggered in ${soundChannel.get('guild')}`)
+		clearTimeout(soundChannel.get('songTimeout')); // cancel backup skipper
+		soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
+	});
+}
+
+function createSongTimeout(soundChannel) {
+	// We increase the expected remaining time by 1 second incase something funky happens
+	let timeoutLength = soundChannel.get('videoLength') - soundChannel.get('seeked') - soundChannel.get('pausedTime') + 1000
+	let timeout = setTimeout( () => { soundChannel.get('eventHandler').emit('killSong'); }, timeoutLength );
+	console.log(`created timeout in: ${soundChannel.get('guild')} with length: ${timeoutLength}`)
+	return timeout;
 }
 
 let filename = "assets/DefaultSearch.txt";
@@ -708,8 +962,6 @@ async function getDefaultSearchQuery() {
 	});
 	return defaultSearchQuery
 }
-
-function test(data) { return true; }
 
 // gets video link from search query
 async function getVideoLink(searchQuery) {
@@ -791,8 +1043,6 @@ function timestampEmbed(soundChannel) {
 	let info = soundChannel.get('currentVideoInfo');
 	let videoLength = info.length;
 	let time = Math.floor(getTimestamp(soundChannel)/1000);
-	console.log(time)
-	console.log(Math.floor(videoLength))
 	let timestr = '';
 	let timestrtmp = '';
 	let tmp;
@@ -842,8 +1092,14 @@ function _TimestampFormat(time) {
 	return timestr;
 }
 
-function getTimestamp(soundChannel) { 
-	return parseInt(getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked'));
+function getTimestamp(soundChannel) {
+	let timestamp = getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked');
+	if (soundChannel.get('audio')) {
+		if (soundChannel.get('audio').paused) {
+			timestamp -= (getTime() - soundChannel.get('pauseStarted'));
+		}
+	}
+	return parseInt(timestamp);
 }
 
 async function deleteFile(filename) {

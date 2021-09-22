@@ -3,7 +3,7 @@ const { Client, MessageAttachment, MessageEmbed } = require('discord.js');
 
 
 module.exports = {
-	Jslat: function (message,args, reply=true) {//just send random names from a list in /assest/message.txt
+	Jschlatt: function (message,args, reply=true) {//just send random names from a list in /assest/message.txt
 		const filename = "assets/message.txt";
 
 		fs.readFile(filename, 'utf8', function(err, data) {
@@ -11,7 +11,7 @@ module.exports = {
 			const namearray = data.split(',');
 			var newslat = "";
 
-			if(args >=1){
+			if(args[0] >=1){
 				for (let i = 0; i < args[0]; i++) {
 					var randomNumber = Math.floor(Math.random()*namearray.length);
 					const element = namearray[randomNumber];
@@ -30,6 +30,7 @@ module.exports = {
 	},
 	spotify: function (message) { 
 		const spotify = message.author.presence.activities[0];
+		if (!spotify) { message.reply('You are not listening to spotify'); return; }
 		if(spotify.name == 'Spotify') // sikker på det er spotify vi få fat i
 		{
 			const sangnavn = spotify.details;
@@ -53,7 +54,7 @@ module.exports = {
 				.setTimestamp(); // ----  slut for  spotifybesked Embed besked
 			//console.log(message.author.presence.activities[0]); // god for debuging
 			message.reply(spotifybesked); 
-		}
+		} else { message.reply('You are not listening to spotify'); }
 	}
 	/* 
 	// if you want to call this func: stupidcommands.test(message);
