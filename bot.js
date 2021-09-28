@@ -29,20 +29,20 @@ const request = https.get(attachment.url, function(response) {
 */
 
 // Extract the required classes from the required modules
-const { Client, MessageAttachment, MessageEmbed, Collection} = require('discord.js');
+const { Client, MessageAttachment, MessageEmbed, Collection } = require('discord.js');
 const { spawn, exec } = require('child_process');
 const EventEmitter = require('events');
 
 // setup event emitter clas
-class MyEmitter extends EventEmitter {};
+class MyEmitter extends EventEmitter { };
 
 // Create an instance of a Discord client
 const client = new Client();
 
 // Create some constants
 const minimumWritten = 3; // create a little buffer before we start streaming
-const ffmpegVideoFormats = ['avi','flac','flv','gif','m4v','mjpeg','mov','mp2','mp3','mp4','mpeg','nut','oga','ogg','ogv','opus','rm','tta','v64','wav','webm','wv'];
-const ffmpegPictureFormats = ['bmp','gif','jpg','jpeg','png','tif','tiff','webp'];
+const ffmpegVideoFormats = ['avi', 'flac', 'flv', 'gif', 'm4v', 'mjpeg', 'mov', 'mp2', 'mp3', 'mp4', 'mpeg', 'nut', 'oga', 'ogg', 'ogv', 'opus', 'rm', 'tta', 'v64', 'wav', 'webm', 'wv'];
+const ffmpegPictureFormats = ['bmp', 'gif', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'webp'];
 // Only for raw image files that can be converted to something else
 const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2'];
 
@@ -93,7 +93,7 @@ async function addVoiceConnection(message) {
 		}
 
 	});
-	info.get('eventHandler').on('Shutdown', async function disconnectShutdown() { 
+	info.get('eventHandler').on('Shutdown', async function disconnectShutdown() {
 		await removeVoiceConnection(info.get('guild'));
 		console.log('removed voice channel: ' + info.get('guild'));
 	});
@@ -118,22 +118,23 @@ async function removeVoiceConnection(ConnectionID) {
 // notify us when the bot is ready
 client.on('ready', () => {
 	console.log('I am ready!');
-	fs.mkdir(__dirname + '\\songs', {recursive: false} ,(err) =>  {
-		if (err) { console.log('Retrying to empty song folder');
-			fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10}, err => {console.log(err)} );
-			fs.mkdir(__dirname + '\\songs', {recursive: false} ,(err) => {
+	fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
+		if (err) {
+			console.log('Retrying to empty song folder');
+			fs.rmdirSync(__dirname + '\\songs', { maxRetries: 10, recursive: true, retryDelay: 10 }, err => { console.log(err) });
+			fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
 				if (err) { console.log('Failed to create empty song folder: continuing anyway: ' + err) }
-				else { console.log('Song folder emptied')}
+				else { console.log('Song folder emptied') }
 			});
 		} else { console.log('Song folder emptied') }
 	});
 });
 
 // is run when node js is stopped using CTRL-c
-process.on('SIGINT', async function() {
+process.on('SIGINT', async function () {
 	console.log('Caught interrupt signal');
 
-	VoiceChannels.forEach( async (soundChannel) => {
+	VoiceChannels.forEach(async (soundChannel) => {
 		await removeVoiceConnection(soundChannel.get('guild'));
 	});
 
@@ -149,13 +150,13 @@ process.on('SIGINT', async function() {
 
 client.on('message', async message => {
 	// If the message is starts with testbot and author is not a bot
-	if (message.content.substring(0, 8) == 'testbot ' && !message.author.bot ) {
+	if (message.content.substring(0, 8) == 'testbot ' && !message.author.bot) {
 		console.log('recieved command');
 		var args = message.content.substring(8).split(' ');
 		var cmd = args[0];
 		args = args.splice(1);
 
-		switch(cmd) {
+		switch (cmd) {
 			// testbot rip
 			case 'rip': {
 				// Create the attachment using MessageAttaSchment
@@ -179,18 +180,18 @@ client.on('message', async message => {
 				// Go through each attachment
 				message.attachments.each(attachment => {
 					// Create an identical attachment as the one in the message and send it back
-					name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join() + ".mp4";
+					name = attachment.name.split('.').slice(0, attachment.name.split('.').length - 1).join() + ".mp4";
 					if (!attachment.name.toLowerCase().endsWith('webm')) {
 						message.reply(attachment.name + ' was not converted because it is not a webm');
 					}
 					else {
-						var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy' ,'file.mp4']);
+						var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', 'file.mp4']);
 						ffmpeg.on('close', code => {
 							if (code == 0) {
 								console.log(attachment);
 								console.log('Sending converted');
 								Converted = new MessageAttachment('./file.mp4', name);
-								message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) {console.error('An error occurred:\n', er)} }));
+								message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) { console.error('An error occurred:\n', er) } }));
 							}
 							else {
 								console.log('ffmpeg failed during conversion');
@@ -202,15 +203,17 @@ client.on('message', async message => {
 				break;
 			}
 			// testbot convert
-			case 'convert' : {
+			case 'convert': {
 				let name;
 				let isVideo;
 				// check for new file type
 				if (args.length == 0) {
 					message.reply('you need to provide a new file type for the file');
 					return;
-				} else if (ffmpegVideoFormats.includes(args[0])) { isVideo = true;
-				} else if (ffmpegPictureFormats.includes(args[0])) { isVideo = false;
+				} else if (ffmpegVideoFormats.includes(args[0])) {
+					isVideo = true;
+				} else if (ffmpegPictureFormats.includes(args[0])) {
+					isVideo = false;
 				} else {
 					message.reply('the first argument must be a valid file extension like mp4 or jpg');
 					return;
@@ -221,24 +224,24 @@ client.on('message', async message => {
 				}
 				// get the latest file
 				message.channel.messages.fetch({ limit: 10 })
-					.then(messages => {return messages.filter(m => m.attachments.first() && !m.author.bot);})
+					.then(messages => { return messages.filter(m => m.attachments.first() && !m.author.bot); })
 					.then(messages => {
-						if (!messages.first()) {message.reply('found no pictures or images 10 messages back, aborting');}
+						if (!messages.first()) { message.reply('found no pictures or images 10 messages back, aborting'); }
 						else {
 							messages.first().attachments.each(attachment => {
 								// Check for matching file type
-								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length-1].toLowerCase();
+								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length - 1].toLowerCase();
 								if ((ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension)) && isVideo) {
 									message.reply('the latest attachment was a picture and you tried to convert it into a video, aborting');
 									return;
-								} else if (ffmpegVideoFormats.includes(originalFileExtension) && !isVideo ) {
+								} else if (ffmpegVideoFormats.includes(originalFileExtension) && !isVideo) {
 									message.reply('the latest attachment was a video and you tried to convert it into a picture, aborting');
 									return;
 								} else if (!(ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension) || ffmpegVideoFormats.includes(originalFileExtension))) {
 									message.reply('uploaded filetype is not supported');
 								}
 								// check for name
-								if (!name) {name = attachment.name.split('.').slice(0, attachment.name.split('.').length-1).join('.') + '.' + args[0];}
+								if (!name) { name = attachment.name.split('.').slice(0, attachment.name.split('.').length - 1).join('.') + '.' + args[0]; }
 								// convert the file
 								let file = `./${name}`;
 								let ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name]);
@@ -248,12 +251,12 @@ client.on('message', async message => {
 										console.log(attachment.url);
 										console.log('Sending converted');
 										Converted = new MessageAttachment(file, name);
-										message.reply(Converted).then(fs.unlink(file, er => { if (er) {console.error('An error occurred:\n', er)} })).catch(er => console.error('An error occurred and was caught:\n', er));
+										message.reply(Converted).then(fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } })).catch(er => console.error('An error occurred and was caught:\n', er));
 									}
 									else {
 										console.log('ffmpeg failed during conversion');
 										message.reply(attachment.name + ' could not be converted because an error happened during conversion');
-										fs.unlink(file, er => { if (er) {console.error('An error occurred:\n', er)} });
+										fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } });
 									}
 								});
 							});
@@ -262,22 +265,22 @@ client.on('message', async message => {
 				break;
 			}
 			//testbot jschlatt
-			case 'jschlatt' : {
+			case 'jschlatt': {
 				stupidcommands.Jschlatt(message, args);
 				break;
 			}
 			// testbot spotify
-			case 'spotify' : {
+			case 'spotify': {
 				stupidcommands.spotify(message);
 				break;
 			}
 			// testbot test
-			case 'test' : {
-				
+			case 'test': {
+
 				break;
 			}
 
-			case 'help' : {
+			case 'help': {
 				const embed = new MessageEmbed()
 					.setColor('#0000FF')
 
@@ -292,79 +295,79 @@ client.on('message', async message => {
 
 				let func = args[0]
 				switch (func) {
-					case 'rip' : {
+					case 'rip': {
 						embed
-						.addField('Execution', 'testbot rip')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Tests if the bot is working')
+							.addField('Execution', 'testbot rip')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Tests if the bot is working')
 						break;
 					}
-					case 'ping' : {
+					case 'ping': {
 						embed
-						.addField('Execution', 'testbot ping')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Pings the bot to see if it is running')
+							.addField('Execution', 'testbot ping')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Pings the bot to see if it is running')
 						break;
 					}
-					case 'webm' : {
+					case 'webm': {
 						embed
-						.addField('Execution', 'testbot webm (filetype)')
-						.addField('Arguments', '1\nfiletype: the filetype to convert the webm into')
-						.addField('Explanation', 'Looks at your messages attachments and converts them into the desired filetype from a webm file if posible.\nThis commands can be slow');
+							.addField('Execution', 'testbot webm (filetype)')
+							.addField('Arguments', '1\nfiletype: the filetype to convert the webm into')
+							.addField('Explanation', 'Looks at your messages attachments and converts them into the desired filetype from a webm file if posible.\nThis commands can be slow');
 						break;
 					}
-					case 'convert' : {
+					case 'convert': {
 						embed
-						.addField('Execution', 'testbot convert (filetype)')
-						.addField('Arguments', '1\nfiletype: the filetype to convert the file into')
-						.addField('explanation', 'Looks 10 messages back and converts the first attachment it finds into the desired filetype if posible.\nThis commands can be slow');
+							.addField('Execution', 'testbot convert (filetype)')
+							.addField('Arguments', '1\nfiletype: the filetype to convert the file into')
+							.addField('explanation', 'Looks 10 messages back and converts the first attachment it finds into the desired filetype if posible.\nThis commands can be slow');
 						break;
 					}
-					case 'jschlatt' : {
+					case 'jschlatt': {
 						embed
-						.addField('Execution', 'testbot jschlatt (number)')
-						.addField('Arguments', '1\nnumber: the amount of names you want')
-						.addField('Explanation', 'Gives a list of (number) names that jschlatt has been called')
+							.addField('Execution', 'testbot jschlatt (number)')
+							.addField('Arguments', '1\nnumber: the amount of names you want')
+							.addField('Explanation', 'Gives a list of (number) names that jschlatt has been called')
 						break;
 					}
-					case 'spotify' : {
+					case 'spotify': {
 						embed
-						.addField('EXPERIMENTAL', 'THIS FUNCTION IS EXPERIMENTAL AND WILL LIKELY NOT WORK')
-						.addField('Execution', 'testbot spotify')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Sends an embed with information about the song you are listening to on spotify');
+							.addField('EXPERIMENTAL', 'THIS FUNCTION IS EXPERIMENTAL AND WILL LIKELY NOT WORK')
+							.addField('Execution', 'testbot spotify')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Sends an embed with information about the song you are listening to on spotify');
 						break;
 					}
-					case 'test' : {
+					case 'test': {
 						embed
-						.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
-						.addField('Execution', 'testbot test')
-						.addField('Arguments', 'This commands most likely ignores all arguments')
-						.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
+							.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
+							.addField('Execution', 'testbot test')
+							.addField('Arguments', 'This commands most likely ignores all arguments')
+							.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
 						break;
 					}
-					case 'help' : {
+					case 'help': {
 						embed
-						.addField('Execution', 'testbot help [function]')
-						.addField('Arguments', '0 or 1\nFunction: the function you want help with')
-						.addField('Explanation', `0 arguments: Prints a list of all testbot commands
+							.addField('Execution', 'testbot help [function]')
+							.addField('Arguments', '0 or 1\nFunction: the function you want help with')
+							.addField('Explanation', `0 arguments: Prints a list of all testbot commands
 						1 argument: Gives detalied help on (function)`)
 						break;
 					}
-					default : {
-						if (func || func == '') { 
+					default: {
+						if (func || func == '') {
 							message.reply(`${func} is not a testbot command`);
 							return;
 						}
 					}
-				} 
+				}
 
 				message.channel.send(embed);
 				break;
 			}
 			// Just add any case commands if you want to..
 
-			default : {
+			default: {
 				message.reply(`${cmd} is not a testbot command`)
 			}
 		}
@@ -372,7 +375,7 @@ client.on('message', async message => {
 
 	// Voice channel commands
 	// If the message is starts with soundbot and author is not a bot
-	else if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot ) {
+	else if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot) {
 		console.log('recieved voice command');
 		// Test to see if the user is in a voicechannel
 		if (message.guild) {
@@ -389,7 +392,7 @@ client.on('message', async message => {
 		var cmd = args[0];
 		args = args.splice(1);
 
-		switch(cmd) {
+		switch (cmd) {
 			// soundbot ping
 			case 'ping': {
 				message.channel.send(`${message.author}, pong!`);
@@ -397,23 +400,23 @@ client.on('message', async message => {
 			}
 
 			// soundbot join
-			case 'join' : {
+			case 'join': {
 				// check if we are already in a voice channel in that guild
-				if (!VoiceChannels.has(ConnectionID)){
+				if (!VoiceChannels.has(ConnectionID)) {
 					await addVoiceConnection(message);
 					console.log(VoiceChannels);
 				} else {
 					if ((VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
 						message.reply('I am already playing in that channel');
 					} else { message.reply(`I am playing in ${VoiceChannels.get(ConnectionID).get('channel')} right now`); }
-				console.log(VoiceChannels);
+					console.log(VoiceChannels);
 				}
 				break;
 			}
 
 			// soundbot play
-			case 'play' : {
-				if (VoiceChannels.has(ConnectionID)){
+			case 'play': {
+				if (VoiceChannels.has(ConnectionID)) {
 					if (!(VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
 						message.reply('You must be in the same voice channel as the bot to use this command');
 						return;
@@ -431,7 +434,7 @@ client.on('message', async message => {
 				args = args.join(' ').split('@');
 				const searchQuery = args[0];
 				let start = 0;
-				if (!isNaN(args[1])){
+				if (!isNaN(args[1])) {
 					start = +args[1];
 				} else if (args[1]) {
 					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')');
@@ -449,7 +452,7 @@ client.on('message', async message => {
 			}
 
 			// soundbot leave
-			case 'leave' : {
+			case 'leave': {
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
 						connection = VoiceChannels.get(ConnectionID).get('connection');
@@ -463,7 +466,7 @@ client.on('message', async message => {
 			}
 
 			// soundbot pause
-			case 'pause' : {
+			case 'pause': {
 				message.reply('resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient')
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
@@ -483,7 +486,7 @@ client.on('message', async message => {
 			}
 
 			// soundbot resume
-			case 'resume' : {
+			case 'resume': {
 				message.reply('resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient')
 				if (VoiceChannels.has(ConnectionID)) {
 					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
@@ -502,7 +505,7 @@ client.on('message', async message => {
 
 								// FIX THAT MAKES THINGS WORK BUT IS BAD
 								const fileName = soundChannel.get('playing');
-								setupSound(soundChannel, fileName, getTimestamp(soundChannel)/1000, message.channel);
+								setupSound(soundChannel, fileName, getTimestamp(soundChannel) / 1000, message.channel);
 								// END OF FIX
 
 								console.log(getTimestamp(soundChannel));
@@ -516,14 +519,14 @@ client.on('message', async message => {
 			}
 
 			// soundbot skip
-			case 'skip' : {
+			case 'skip': {
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (VoiceChannels.has(ConnectionID)) {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
 						let audio = soundChannel.get('playing');
 						if (audio) {
 							soundChannel.get('eventHandler').emit('killffmpeg');
-							if(soundChannel.get('queue').length > 0){
+							if (soundChannel.get('queue').length > 0) {
 								filename = soundChannel.get('playing');
 								soundChannel.set('playing', false);
 								soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, message.channel);
@@ -534,14 +537,14 @@ client.on('message', async message => {
 								soundChannel.set('ended', true);
 							}
 							clearTimeout(soundChannel.get('songTimeout')); // Clear any timeouts we have
-						} else { message.reply('nothing is playing right now') ;}
+						} else { message.reply('nothing is playing right now'); }
 					} else { message.reply('you must be in the same channel as the bot to use that command'); }
 				} else { message.reply('the bot must be running for you to use that command'); }
 				break;
 			}
 
 			// soundbot queue
-			case 'queue' : {
+			case 'queue': {
 
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (soundChannel.get('queue').length > 0) {
@@ -557,7 +560,7 @@ client.on('message', async message => {
 			}
 
 			// soundbot remove
-			case 'remove' : {
+			case 'remove': {
 				if (args.length == 0) {
 					message.reply('you must suply atleast one number after remove');
 				}
@@ -566,7 +569,7 @@ client.on('message', async message => {
 						return;
 					}
 				}
-			
+
 				let soundChannel = VoiceChannels.get(ConnectionID);
 				if (VoiceChannels.has(ConnectionID)) {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
@@ -578,7 +581,7 @@ client.on('message', async message => {
 								if (queue.length >= +args[0]) {
 									queue.splice(+args[0] - 1, 1); // the first item is not at the first index
 								} else { message.reply('the queue does not have a song at that position'); }
-							// two arguments
+								// two arguments
 							} else if (args.length == 2) {
 								console.log(args.length + ' ' + args[0] + ' ' + args[1])
 								if (args[0] > args[1]) {
@@ -592,7 +595,7 @@ client.on('message', async message => {
 									}
 									queue.splice(+args[0] - 1, +args[1] - +args[0]);
 								} else { message.reply('the queue does not contain any songs in that range'); }
-							// more than two arguments
+								// more than two arguments
 							} else {
 								console.log(args.length + ' ' + args.join(' '));
 								let removed = 0;
@@ -602,7 +605,7 @@ client.on('message', async message => {
 										queue.splice(+arg[i] - 1 - removed, 1);
 										removed += 1;
 									} else {
-										notRemoved.push(args[i]); 
+										notRemoved.push(args[i]);
 									}
 								}
 								if (notRemoved == '') {
@@ -618,7 +621,7 @@ client.on('message', async message => {
 			}
 
 			//soundbot seek
-			case 'seek' : {
+			case 'seek': {
 				let start = 0;
 				if (!isNaN(args[0])) {
 					start = +args[0];
@@ -643,7 +646,7 @@ client.on('message', async message => {
 			}
 
 			// soundbot timestamp
-			case 'timestamp' : {
+			case 'timestamp': {
 
 				const ConnectionID = message.guild.id;
 				if (VoiceChannels.has(ConnectionID)) {
@@ -660,14 +663,14 @@ client.on('message', async message => {
 			}
 
 			// soundbot test
-			case 'test' : {
+			case 'test': {
 				message.reply("test");
 				break;
 			}
 
 			// Just add any case commands if you want to..
 
-			case 'help' : {
+			case 'help': {
 				const embed = new MessageEmbed()
 					.setColor('#FF0000')
 
@@ -682,113 +685,113 @@ client.on('message', async message => {
 
 				let func = args[0]
 				switch (func) {
-					case 'ping' : {
+					case 'ping': {
 						embed
-						.addField('Execution', 'soundbot ping')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Pings the bot to see if it is running')
+							.addField('Execution', 'soundbot ping')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Pings the bot to see if it is running')
 						break;
 					}
-					case 'join' : {
+					case 'join': {
 						embed
-						.addField('Execution', 'soundbot join')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('explanation', 'Joins your current voicechannel\nthe \'play\' function does not need this command to be run first');
+							.addField('Execution', 'soundbot join')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('explanation', 'Joins your current voicechannel\nthe \'play\' function does not need this command to be run first');
 						break;
 					}
-					case 'play' : {
+					case 'play': {
 						embed
-						.addField('Execution', 'soundbot play (string) @[number]')
-						.addField('Arguments', `1 or 2
+							.addField('Execution', 'soundbot play (string) @[number]')
+							.addField('Arguments', `1 or 2
 						string: Space seperated search query to be searched for on youtube
 						(optional) number : The amount of seconds to skip of the video prefixed by '@'`)
-						.addField('Explanation', `Searches youtube for a video matching the search query
+							.addField('Explanation', `Searches youtube for a video matching the search query
 						If a song is already playing the searched for video will be added to the queue
 						If seek is included the first [number] of seconds will be skipped`);
 						break;
 					}
-					case 'pause' : {
+					case 'pause': {
 						embed
-						.addField('WARNING', 'This commands is not functioning optimally, but still works as intended')
-						.addField('Execution', 'soundbot pause')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Pauses the currently playing song')
+							.addField('WARNING', 'This commands is not functioning optimally, but still works as intended')
+							.addField('Execution', 'soundbot pause')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Pauses the currently playing song')
 						break;
 					}
-					case 'resume' : {
+					case 'resume': {
 						embed
-						.addField('WARNING', 'This commands is not functioning optimally, but still works as intended')
-						.addField('Execution', 'soundbot resume')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Resumes the currently paused song')
+							.addField('WARNING', 'This commands is not functioning optimally, but still works as intended')
+							.addField('Execution', 'soundbot resume')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Resumes the currently paused song')
 						break;
 					}
-					case 'skip' : {
+					case 'skip': {
 						embed
-						.addField('Execution', 'soundbot skip')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Skips the currently playing song')
+							.addField('Execution', 'soundbot skip')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Skips the currently playing song')
 						break;
 					}
-					case 'queue' : {
+					case 'queue': {
 						embed
-						.addField('Execution', 'soundbot queue')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Shows all items in the queue')
+							.addField('Execution', 'soundbot queue')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Shows all items in the queue')
 						break;
 					}
-					case 'remove' : {
+					case 'remove': {
 						embed
-						.addField('Execution', 'soundbot remove (number) [number] [...]')
-						.addField('Arguments', '0, 1 or more\nnumber: position in the queue')
-						.addField('Explanation', `1 argument: Removes song at position (number)
+							.addField('Execution', 'soundbot remove (number) [number] [...]')
+							.addField('Arguments', '0, 1 or more\nnumber: position in the queue')
+							.addField('Explanation', `1 argument: Removes song at position (number)
 						(optional) 2 arguments: Removes all song in the queue between (number) and [number], but not [number]
 						(optional) more arguments: Removes songs at the specified positions in the queue`)
 						break;
 					}
-					case 'seek' : {
+					case 'seek': {
 						embed
-						.addField('Execution', 'soundbot seek (number)')
-						.addField('Arguments', '1\nnumber: Seek to this second in the currently playing song')
-						.addField('Explanation', 'Seeks to the (number)\'s second of the currently playing song')
+							.addField('Execution', 'soundbot seek (number)')
+							.addField('Arguments', '1\nnumber: Seek to this second in the currently playing song')
+							.addField('Explanation', 'Seeks to the (number)\'s second of the currently playing song')
 						break;
 					}
-					case 'timestamp' : {
+					case 'timestamp': {
 						embed
-						.addField('Execution', 'soundbot timestamp')
-						.addField('Arguments', 'This commands ignores all arguments')
-						.addField('Explanation', 'Sends an embed showing the current position in the song')
+							.addField('Execution', 'soundbot timestamp')
+							.addField('Arguments', 'This commands ignores all arguments')
+							.addField('Explanation', 'Sends an embed showing the current position in the song')
 						break;
 					}
-					case 'test' : {
+					case 'test': {
 						embed
-						.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
-						.addField('Execution', 'soundbot test')
-						.addField('Arguments', 'This commands most likely ignores all arguments')
-						.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
+							.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
+							.addField('Execution', 'soundbot test')
+							.addField('Arguments', 'This commands most likely ignores all arguments')
+							.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
 						break;
 					}
-					case 'help' : {
+					case 'help': {
 						embed
-						.addField('Execution', 'soundbot help [function]')
-						.addField('Arguments', '0 or 1\nFunction: The function you want help with')
-						.addField('Explanation', `0 arguments: Prints a list of all soundbot commands
+							.addField('Execution', 'soundbot help [function]')
+							.addField('Arguments', '0 or 1\nFunction: The function you want help with')
+							.addField('Explanation', `0 arguments: Prints a list of all soundbot commands
 						1 argument: Gives detalied help on (function)`)
 						break;
 					}
-					default : {
-						if (func || func == '') { 
+					default: {
+						if (func || func == '') {
 							message.reply(`${func} is not a testbot command`);
 							return;
 						}
 					}
-				} 
+				}
 
 				message.channel.send(embed);
 				break;
 			}
-			
-			default : {
+
+			default: {
 				message.reply(`${cmd} is not a soundcommand`)
 			}
 		}
@@ -818,7 +821,7 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
 
 	//let ratelimited = false;
-	let fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild')+'.opus';
+	let fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
 
 	// Delete previous file if found
 	deleteFile(fileName);
@@ -827,12 +830,12 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	// This should mean that we allways have a clean file for ffmpeg
 	soundChannel.set('fileNumber', soundChannel.get('fileNumber') + 1);
 
-	fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild')+'.opus';
+	fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
 
 	// Has to contain " or else it will not run on the cmd.exe shell
 	let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
-	let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], {shell: 'cmd.exe'});
-	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '128k', fileName], {shell: 'cmd.exe'});
+	let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], { shell: 'cmd.exe' });
+	let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '128k', fileName], { shell: 'cmd.exe' });
 
 	/* -------YTDL EVENTS------- */
 	ytdl.on('error', async error => { console.log('error: ' + error) });
@@ -841,9 +844,9 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
 	ytdl.stderr.on('data', async data => { // messages from ytdl
 		if (reDownSpeed[Symbol.match](`${data}`)) {
-			console.log( `ytdl: stderr: ${data}`);
+			console.log(`ytdl: stderr: ${data}`);
 		}
-	}); 
+	});
 
 	ytdl.on('close', (code) => {
 		console.log(`ytdl process exited with code ${code}`);
@@ -859,12 +862,12 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	let written = 0;
 	// check when the audio file has some data
 	ffmpeg.stderr.on('data', async data => {
-		if (`${data}`.startsWith('size=')) { 
+		if (`${data}`.startsWith('size=')) {
 			written = reWritten[Symbol.match](`${data}`)[0].substring(3);
 			written = written.split(':');
-			written = parseInt(written[0], 10)*3600 + parseInt(written[1], 10)*60 + parseInt(written[2], 10);
+			written = parseInt(written[0], 10) * 3600 + parseInt(written[1], 10) * 60 + parseInt(written[2], 10);
 			// once we have enough start the song (We must have at least 5)
-			if ((written > start && written > minimumWritten) || written >= soundChannel.get('videoLength')/1000) { ffmpegEmitter.emit('fileReady'); } 
+			if ((written > start && written > minimumWritten) || written >= soundChannel.get('videoLength') / 1000) { ffmpegEmitter.emit('fileReady'); }
 			//console.log( `ffmpeg: stderr: ${data}`);
 		}
 		//console.log( `ffmpeg: stderr: ${data}`);
@@ -878,19 +881,19 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	// When skipping kill ffmpeg if it is still running to save resources
 	ffmpegEmitter.on('killffmpeg', async () => {
 		if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
-		if (ffmpeg.exitCode == null) { 
+		if (ffmpeg.exitCode == null) {
 			ffmpeg.kill()
-			.then(() => { 
-				ffmpegEmitter.emit('killedffmpeg'); 
-			})
-			.catch(err => { 
-				console.log(`error when killing ffmpeg in: ${ConnectionID}:\n${err}`) 
-			});
+				.then(() => {
+					ffmpegEmitter.emit('killedffmpeg');
+				})
+				.catch(err => {
+					console.log(`error when killing ffmpeg in: ${ConnectionID}:\n${err}`)
+				});
 		}
 	});
 	/* ------------------------- */
 
-	soundChannel.set('videoLength', info.length*1000);
+	soundChannel.set('videoLength', info.length * 1000);
 	soundChannel.set('currentVideoInfo', info);
 
 	embed = youtubeEmbed(url, info);
@@ -901,7 +904,7 @@ function setupSound(soundChannel, filename, start, channel) {
 
 	connection = soundChannel.get('connection');
 	soundChannel.set('timeStarted', getTime());
-	soundChannel.set('seeked', start*1000);
+	soundChannel.set('seeked', start * 1000);
 	soundChannel.set('pauseStarted', 0);
 	soundChannel.set('pausedTime', 0);
 	soundChannel.set('playing', filename);
@@ -910,7 +913,7 @@ function setupSound(soundChannel, filename, start, channel) {
 	const stream = fs.createReadStream(filename);
 	console.log(filename);
 	const audio = connection.play(
-		stream, 
+		stream,
 		{
 			seek: start,
 			StreamType: 'opus',
@@ -919,7 +922,7 @@ function setupSound(soundChannel, filename, start, channel) {
 			volume: false
 		}
 	);
-	
+
 	soundChannel.set('audio', audio);
 	// create backup for the 'finish' event so the bot doesn't stall
 	clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
@@ -946,18 +949,18 @@ function setupSound(soundChannel, filename, start, channel) {
 function createSongTimeout(soundChannel) {
 	// We increase the expected remaining time by 1 second incase something funky happens
 	let timeoutLength = soundChannel.get('videoLength') - soundChannel.get('seeked') - soundChannel.get('pausedTime') + 1000
-	let timeout = setTimeout( () => { soundChannel.get('eventHandler').emit('killSong'); }, timeoutLength );
+	let timeout = setTimeout(() => { soundChannel.get('eventHandler').emit('killSong'); }, timeoutLength);
 	console.log(`created timeout in: ${soundChannel.get('guild')} with length: ${timeoutLength}`)
 	return timeout;
 }
 
 let filename = "assets/DefaultSearch.txt";
 async function getDefaultSearchQuery() {
-	defaultSearchQuery = new Promise(function(resolve) {
-		fs.readFile(filename, 'utf8', function(err, data) {
+	defaultSearchQuery = new Promise(function (resolve) {
+		fs.readFile(filename, 'utf8', function (err, data) {
 			if (err) throw err;
 			const defaultSearchArray = data.split(',');
-			resolve( defaultSearchArray[Math.floor(Math.random()*defaultSearchArray.length)] )
+			resolve(defaultSearchArray[Math.floor(Math.random() * defaultSearchArray.length)])
 		});
 	});
 	return defaultSearchQuery
@@ -969,14 +972,14 @@ async function getVideoLink(searchQuery) {
 		searchQuery = await getDefaultSearchQuery()
 	}
 	let videoId = "";
-	let video = new Promise(function(resolve) {
+	let video = new Promise(function (resolve) {
 		let wholeDocument = new MyEmitter;
 		https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
 			let documentBody = "";
 			res.on('data', (data) => {
 				documentBody += data;
-				
-				if (data.slice(data.length-7) == "</html>") {wholeDocument.emit("got", documentBody)}
+
+				if (data.slice(data.length - 7) == "</html>") { wholeDocument.emit("got", documentBody) }
 
 			});
 		});
@@ -989,7 +992,7 @@ async function getVideoLink(searchQuery) {
 			const reThumbnail = /(?<="thumbnails":\[).*?(?=\])/;
 			const reTitle = /(?<="title":\{"runs":\[\{"text":").*?(?="\}\])/;
 			const reLength = /(?<=}},"simpleText":")[\d\.]+/;
-			
+
 			// We extract a snippet of the whole document containing the relevant information about the video and loop through them until it is not a playlist
 			let result = reInformation[Symbol.match](data)[0];
 			let i = 1;
@@ -997,22 +1000,22 @@ async function getVideoLink(searchQuery) {
 				result = reInformation[Symbol.match](data)[i];
 				i++;
 			}
-			
+
 			if (result != null) {
 				// extracts the video ID and adds it to the link
-				videoId = result.slice(11,22);
+				videoId = result.slice(11, 22);
 				videoLink = "https://www.youtube.com/watch?v=" + videoId;
 				// extracts the title of the video
 				videoTitle = reTitle[Symbol.match](result)[0];
 				// extracts the thumbnail link of highest quality
 				tempThumbnail = reThumbnail[Symbol.match](result)[0].split(',');
-				videoThumbnailLink = tempThumbnail[tempThumbnail.length-3].slice(8).slice(0,-1);
+				videoThumbnailLink = tempThumbnail[tempThumbnail.length - 3].slice(8).slice(0, -1);
 				// extracts the video length
 
 				tempLength = reLength[Symbol.match](result)[0].split('.');
 				let time = 0;
-				if ( tempLength.length == 3 ) { time = parseInt(tempLength[0], 10)*3600 + parseInt(tempLength[1], 10)*60 + parseInt(tempLength[2], 10); }
-				else 															 { time = parseInt(tempLength[0], 10)*60 + parseInt(tempLength[1], 10); }
+				if (tempLength.length == 3) { time = parseInt(tempLength[0], 10) * 3600 + parseInt(tempLength[1], 10) * 60 + parseInt(tempLength[2], 10); }
+				else { time = parseInt(tempLength[0], 10) * 60 + parseInt(tempLength[1], 10); }
 
 				// we pack the video info nice and tidy
 				let video = {
@@ -1042,13 +1045,13 @@ function youtubeEmbed(url, videoInfo) {
 function timestampEmbed(soundChannel) {
 	let info = soundChannel.get('currentVideoInfo');
 	let videoLength = info.length;
-	let time = Math.floor(getTimestamp(soundChannel)/1000);
+	let time = Math.floor(getTimestamp(soundChannel) / 1000);
 	let timestr = '';
 	let timestrtmp = '';
 	let tmp;
 	// hours
 	if (videoLength >= 3600) {
-		tmp = Math.floor(time / 3600) ;
+		tmp = Math.floor(time / 3600);
 		timestr += _TimestampFormat(tmp) + ':';
 		time -= 3600 * tmp;
 
@@ -1078,7 +1081,7 @@ function timestampEmbed(soundChannel) {
 		.setThumbnail(info.thumbnail)
 		.addField('Video name', info.title)
 		.addField('link:', info.url, true)
-		.setDescription( timestr );
+		.setDescription(timestr);
 	return embed;
 }
 
@@ -1104,25 +1107,25 @@ function getTimestamp(soundChannel) {
 
 async function deleteFile(filename) {
 	let exists = await fsprom.access(filename)
-		.then( () => { return true; } )
-		.catch( err => {
+		.then(() => { return true; })
+		.catch(err => {
 			if (err.code !== 'ENOENT') {
-				console.log( `unexpected error when checking for song file:\n${err}\nTrying to delete anyways`);
+				console.log(`unexpected error when checking for song file:\n${err}\nTrying to delete anyways`);
 				return true;
 			}
 			else if (err.code == 'ENOENT') {
 				console.log(`${filename} is already deleted`);
 				return false;
 			}
-	});
-	if (exists) {
-		fsprom.rm(filename, {force: true, maxRetries: 1000, recursive: true})
-		.catch( err => { 
-			console.log(`unexpected error when deleting for song file:\n${err}`);
-		})
-		.then( () => {
-			console.log(`Succesfully deleted ${filename}`);
 		});
+	if (exists) {
+		fsprom.rm(filename, { force: true, maxRetries: 1000, recursive: true })
+			.catch(err => {
+				console.log(`unexpected error when deleting for song file:\n${err}`);
+			})
+			.then(() => {
+				console.log(`Succesfully deleted ${filename}`);
+			});
 	}
 }
 
