@@ -9,8 +9,6 @@ Make conver function argument to look further back than the latest attachemt eg.
 ...
 */
 
-var auth = require('./auth.json');
-
 // used so the bot can download things
 const https = require('https');
 const fs = require('fs');
@@ -29,15 +27,17 @@ const request = https.get(attachment.url, function(response) {
 */
 
 // Extract the required classes from the required modules
-const { Client, MessageAttachment, MessageEmbed, Collection } = require('discord.js');
-const { spawn, exec } = require('child_process');
+const { Client, MessageAttachment, MessageEmbed, Collection, Intents } = require('discord.js');
+const { joinVoiceChannel, getVoiceConnection, createAudioResource, createAudioPlayer, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
+const { spawn } = require('child_process');
 const EventEmitter = require('events');
 
 // setup event emitter clas
 class MyEmitter extends EventEmitter { };
 
-// Create an instance of a Discord client
-const client = new Client();
+// Create an instance of a Discord client with intents
+const botIntents = new Intents([Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILDS, Intents.FLAGS.DIRECT_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES]);
+const client = new Client({ intents: botIntents });
 
 // Create some constants
 const minimumWritten = 3; // create a little buffer before we start streaming
@@ -54,22 +54,31 @@ function getTime() { return parseInt(new Date().getTime()); };
 
 console.log(getTime());
 
+// Log our bot in using the token from https://discordapp.com/developers/applications/me
+var auth = require('./auth.json');
+client.login(auth.token);
+
 // Adding a voice connection
 async function addVoiceConnection(message) {
-	const connection = await message.member.voice.channel.join();
+	const connection = await joinVoiceChannel({
+		channelId: message.member.voice.channel.id,
+		guildId: message.guildId,
+		adapterCreator: message.guild.voiceAdapterCreator
+	});
 	var info = new Map();
-	info.set('playing', '');
+	info.set('playing', false);
 	info.set('queue', new Array());
 	info.set('ended', true);
 	info.set('id', message.member.voice.channel.id);
 	info.set('guild', message.guild.id);
 	info.set('channel', message.member.voice.channel);
 	info.set('connection', connection);
-	info.set('audio');
+	info.set('audioPlayer', createAudioPlayer());
 	info.set('songTimeout') // backup incase the audio does not emit a 'finish' event
 	info.set('fileNumber', 0);
 	info.set('eventHandler', new EventEmitter());
 	info.set('currentVideoInfo');
+	info.set('settingUpSong', false);
 	// all in milliseconds
 	info.set('timeStarted', 0);
 	info.set('pauseStarted', 0);
@@ -78,6 +87,7 @@ async function addVoiceConnection(message) {
 	info.set('seeked', 0)
 
 	console.log(info.get('guild'));
+	connection.subscribe(info.get('audioPlayer')); // Connect the audio connection to the audioplayer
 	VoiceChannels.set(info.get('guild'), info); // The guild id is used to uniquely identify each server
 
 	info.get('eventHandler').on('SongOver', async function PlayNextSong(soundChannel, filename, channel) {
@@ -88,8 +98,8 @@ async function addVoiceConnection(message) {
 		if (nextSongInfo) {
 			playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
 		} else {
-			channel.send('The music queue is now empty');
-			await connection.play('');
+			channel.send({ content: 'The music queue is now empty' });
+			//await info.get('audioPlayer').play('');
 		}
 
 	});
@@ -97,21 +107,17 @@ async function addVoiceConnection(message) {
 		await removeVoiceConnection(info.get('guild'));
 		console.log('removed voice channel: ' + info.get('guild'));
 	});
-
-	//connection.on('speaking', async speaking => {});
 }
 
 // removing a voice connection
-async function removeVoiceConnection(ConnectionID) {
+async function removeVoiceConnection(ConnectionId) {
 	return new Promise(async resolve => {
-		let soundChannel = VoiceChannels.get(ConnectionID);
-		await soundChannel.get('connection').play('')
-		await soundChannel.get('connection').disconnect();
+		let soundChannel = VoiceChannels.get(ConnectionId);
+		await soundChannel.get('connection').destroy();
+		await soundChannel.get('audioPlayer').stop()
 		soundChannel.get('eventHandler').emit('killffmpeg');
-		soundChannel.get('eventHandler').on('killedffmpeg', () => {
-			VoiceChannels.delete(ConnectionID);
-			resolve(true); // Signal that we are done
-		});
+		VoiceChannels.delete(ConnectionId);
+		resolve(true); // Signal that we are done
 	}); // promise ends
 }
 
@@ -121,7 +127,7 @@ client.on('ready', () => {
 	fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
 		if (err) {
 			console.log('Retrying to empty song folder');
-			fs.rmdirSync(__dirname + '\\songs', { maxRetries: 10, recursive: true, retryDelay: 10 }, err => { console.log(err) });
+			fs.rmSync(__dirname + '\\songs', { maxRetries: 10, recursive: true, retryDelay: 10 }, err => { console.log(err) });
 			fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
 				if (err) { console.log('Failed to create empty song folder: continuing anyway: ' + err) }
 				else { console.log('Song folder emptied') }
@@ -141,14 +147,14 @@ process.on('SIGINT', async function () {
 	// add stuff here
 
 	//doesn't work implement other function
-	//fs.rmdirSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10});
+	//fs.rmSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10});
 
 	// This should always run last
 	// Make sure everything before this is done executing or it might not finish
 	process.exit();
 });
 
-client.on('message', async message => {
+client.on('messageCreate', async message => {
 	// If the message is starts with testbot and author is not a bot
 	if (message.content.substring(0, 8) == 'testbot ' && !message.author.bot) {
 		console.log('recieved command');
@@ -162,19 +168,19 @@ client.on('message', async message => {
 				// Create the attachment using MessageAttaSchment
 				attachment = new MessageAttachment('https://i.imgur.com/w3duR07.png');
 				// Send the attachment in the message channel with a content
-				message.reply(attachment);
+				message.reply({ content: attachment });
 				break;
 			}
 			// testbot ping
 			case 'ping': {
-				message.reply('pong!');
+				message.reply({ content: 'pong!' });
 				console.log(message);
 				break;
 			}
 			// testbot webm
 			case 'webm': {
 				if (!message.attachments.first()) {
-					message.reply('the command \'webm\' requires a webm attachment sent with the message');
+					message.reply({ content: 'the command \'webm\' requires a webm attachment sent with the message' });
 					break;
 				}
 				// Go through each attachment
@@ -182,7 +188,7 @@ client.on('message', async message => {
 					// Create an identical attachment as the one in the message and send it back
 					name = attachment.name.split('.').slice(0, attachment.name.split('.').length - 1).join() + ".mp4";
 					if (!attachment.name.toLowerCase().endsWith('webm')) {
-						message.reply(attachment.name + ' was not converted because it is not a webm');
+						message.reply({ content: attachment.name + ' was not converted because it is not a webm' });
 					}
 					else {
 						var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', 'file.mp4']);
@@ -191,11 +197,11 @@ client.on('message', async message => {
 								console.log(attachment);
 								console.log('Sending converted');
 								Converted = new MessageAttachment('./file.mp4', name);
-								message.reply(Converted).then(fs.unlink('./file.mp4', er => { if (er) { console.error('An error occurred:\n', er) } }));
+								message.reply({ files: Converted }).then(fs.unlink('./file.mp4', er => { if (er) { console.error('An error occurred:\n', er) } }));
 							}
 							else {
 								console.log('ffmpeg failed during conversion');
-								message.reply(attachment.name + ' could not be converted because an error happened during conversion');
+								message.reply({ content: attachment.name + ' could not be converted because an error happened during conversion' });
 							}
 						});
 					}
@@ -208,14 +214,14 @@ client.on('message', async message => {
 				let isVideo;
 				// check for new file type
 				if (args.length == 0) {
-					message.reply('you need to provide a new file type for the file');
+					message.reply({ content: 'you need to provide a new file type for the file' });
 					return;
 				} else if (ffmpegVideoFormats.includes(args[0])) {
 					isVideo = true;
 				} else if (ffmpegPictureFormats.includes(args[0])) {
 					isVideo = false;
 				} else {
-					message.reply('the first argument must be a valid file extension like mp4 or jpg');
+					message.reply({ content: 'the first argument must be a valid file extension like mp4 or jpg' });
 					return;
 				}
 				// check if user made a new name otherwise give it the old name
@@ -226,19 +232,19 @@ client.on('message', async message => {
 				message.channel.messages.fetch({ limit: 10 })
 					.then(messages => { return messages.filter(m => m.attachments.first() && !m.author.bot); })
 					.then(messages => {
-						if (!messages.first()) { message.reply('found no pictures or images 10 messages back, aborting'); }
+						if (!messages.first()) { message.reply({ content: 'found no pictures or images 10 messages back, aborting' }); }
 						else {
 							messages.first().attachments.each(attachment => {
 								// Check for matching file type
 								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length - 1].toLowerCase();
 								if ((ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension)) && isVideo) {
-									message.reply('the latest attachment was a picture and you tried to convert it into a video, aborting');
+									message.reply({ content: 'the latest attachment was a picture and you tried to convert it into a video, aborting' });
 									return;
 								} else if (ffmpegVideoFormats.includes(originalFileExtension) && !isVideo) {
-									message.reply('the latest attachment was a video and you tried to convert it into a picture, aborting');
+									message.reply({ content: 'the latest attachment was a video and you tried to convert it into a picture, aborting' });
 									return;
 								} else if (!(ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension) || ffmpegVideoFormats.includes(originalFileExtension))) {
-									message.reply('uploaded filetype is not supported');
+									message.reply({ content: 'uploaded filetype is not supported' });
 								}
 								// check for name
 								if (!name) { name = attachment.name.split('.').slice(0, attachment.name.split('.').length - 1).join('.') + '.' + args[0]; }
@@ -251,11 +257,11 @@ client.on('message', async message => {
 										console.log(attachment.url);
 										console.log('Sending converted');
 										Converted = new MessageAttachment(file, name);
-										message.reply(Converted).then(fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } })).catch(er => console.error('An error occurred and was caught:\n', er));
+										message.reply({ files: Converted }).then(fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } })).catch(er => console.error('An error occurred and was caught:\n', er));
 									}
 									else {
 										console.log('ffmpeg failed during conversion');
-										message.reply(attachment.name + ' could not be converted because an error happened during conversion');
+										message.reply({ content: attachment.name + ' could not be converted because an error happened during conversion' });
 										fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } });
 									}
 								});
@@ -356,19 +362,19 @@ client.on('message', async message => {
 					}
 					default: {
 						if (func || func == '') {
-							message.reply(`${func} is not a testbot command`);
+							message.reply({ content: `${func} is not a testbot command` });
 							return;
 						}
 					}
 				}
 
-				message.channel.send(embed);
+				message.channel.send({ embeds: [embed] });
 				break;
 			}
 			// Just add any case commands if you want to..
 
 			default: {
-				message.reply(`${cmd} is not a testbot command`)
+				message.reply({ content: `${cmd} is not a testbot command` })
 			}
 		}
 	}
@@ -380,14 +386,14 @@ client.on('message', async message => {
 		// Test to see if the user is in a voicechannel
 		if (message.guild) {
 			if (!message.member.voice.channel) {
-				message.reply('you must be in a voice channel to use that command');
+				message.reply({ content: 'you must be in a voice channel to use that command' });
 				return;
 			}
 		} else {
-			message.reply(`you can only use this command in a guild`);
+			message.reply({ content: `you can only use this command in a guild` });
 			return;
 		}
-		let ConnectionID = message.guild.id;
+		let ConnectionId = message.guild.id;
 		var args = message.content.substring(9).split(' ');
 		var cmd = args[0];
 		args = args.splice(1);
@@ -395,20 +401,20 @@ client.on('message', async message => {
 		switch (cmd) {
 			// soundbot ping
 			case 'ping': {
-				message.channel.send(`${message.author}, pong!`);
+				message.channel.send({ content: 'pong!' });
 				break;
 			}
 
 			// soundbot join
 			case 'join': {
 				// check if we are already in a voice channel in that guild
-				if (!VoiceChannels.has(ConnectionID)) {
+				if (!VoiceChannels.has(ConnectionId)) {
 					await addVoiceConnection(message);
 					console.log(VoiceChannels);
 				} else {
-					if ((VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
-						message.reply('I am already playing in that channel');
-					} else { message.reply(`I am playing in ${VoiceChannels.get(ConnectionID).get('channel')} right now`); }
+					if ((VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id)) {
+						message.reply({ content: 'I am already playing in that channel' });
+					} else { message.reply({ content: `I am playing in ${VoiceChannels.get(ConnectionId).get('channel')} right now` }); }
 					console.log(VoiceChannels);
 				}
 				break;
@@ -416,19 +422,19 @@ client.on('message', async message => {
 
 			// soundbot play
 			case 'play': {
-				if (VoiceChannels.has(ConnectionID)) {
-					if (!(VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id)) {
-						message.reply('You must be in the same voice channel as the bot to use this command');
+				if (VoiceChannels.has(ConnectionId)) {
+					if (!(VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id)) {
+						message.reply({ content: 'You must be in the same voice channel as the bot to use this command' });
 						return;
 					}
 				} else {
 					await addVoiceConnection(message);
-					console.log('added voice channel:\n' + ConnectionID);
+					console.log('added voice channel:\n' + ConnectionId);
 				}
-				connection = VoiceChannels.get(ConnectionID).get('connection');
-				let soundChannel = VoiceChannels.get(ConnectionID);
+				let soundChannel = VoiceChannels.get(ConnectionId);
+
 				if (args.length == 0) {
-					message.reply('you must give at least one word as an argument to search for a video');
+					message.reply({ content: 'you must give at least one word as an argument to search for a video' });
 					break;
 				}
 				args = args.join(' ').split('@');
@@ -437,116 +443,107 @@ client.on('message', async message => {
 				if (!isNaN(args[1])) {
 					start = +args[1];
 				} else if (args[1]) {
-					message.reply('the time argument after @ must be in seconds and contain no spaces (\'@38\')');
+					message.reply({ content: 'the time argument after @ must be in seconds and contain no spaces (\'@38\')' });
 				}
-				const videoInfo = await getVideoLink(searchQuery);
-				if (soundChannel.get('playing')) {
-					queue(ConnectionID, videoInfo.url, videoInfo, start, message.channel);
-					console.log(`Queued "${videoInfo.url}" in ${ConnectionID}`);
-					message.reply('your song is now queued');
+				if (soundChannel.get('playing') || soundChannel.get('settingUpSong')) {
+					const videoInfo = await getVideoLink(searchQuery); // must be run in both or else we risk playing two song simultaneously 
+					queue(ConnectionId, videoInfo.url, videoInfo, start, message.channel);
+					console.log(`Queued "${videoInfo.url}" in ${ConnectionId}`);
+					message.reply({ content: 'your song is now queued' });
 					return;
 				} else {
-					playMusic(ConnectionID, videoInfo.url, videoInfo, start, message.channel);
+					soundChannel.set('settingUpSong', true);
+					const videoInfo = await getVideoLink(searchQuery);
+					playMusic(ConnectionId, videoInfo.url, videoInfo, start, message.channel);
 				}
 				break;
 			}
 
 			// soundbot leave
 			case 'leave': {
-				if (VoiceChannels.has(ConnectionID)) {
-					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						connection = VoiceChannels.get(ConnectionID).get('connection');
-						connection.play('');
-						connection.disconnect();
-						removeVoiceConnection(ConnectionID);
-						console.log('removed voice channel: ' + ConnectionID);
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+				if (VoiceChannels.has(ConnectionId)) {
+					if (VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id) {
+						player = VoiceChannels.get(ConnectionId).get('audioPlayer');
+						player.stop();
+						removeVoiceConnection(ConnectionId);
+						console.log('removed voice channel: ' + ConnectionId);
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			// soundbot pause
 			case 'pause': {
-				message.reply('resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient')
-				if (VoiceChannels.has(ConnectionID)) {
-					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						let soundChannel = VoiceChannels.get(ConnectionID);
-						let audio = soundChannel.get('audio');
-						if (audio) {
-							if (!audio.paused) {
-								clearTimeout(soundChannel.get('songTimeout')); // Stop any timeouts
-								audio.pause();
-								soundChannel.set('pauseStarted', getTime());
-								console.log('paused voice channel: ' + ConnectionID);
-							} else { message.reply('the bot is already paused'); }
-						} else { message.reply('the bot is not playing anything right now'); }
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+				message.reply({ content: 'resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient' })
+				if (VoiceChannels.has(ConnectionId)) {
+					if (VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id) {
+						let soundChannel = VoiceChannels.get(ConnectionId);
+						let player = soundChannel.get('audioPlayer');
+						if (player) {
+							clearTimeout(soundChannel.get('songTimeout')); // Stop any timeouts
+							player.pause();
+							soundChannel.set('pauseStarted', getTime());
+							console.log('paused voice channel: ' + ConnectionId);
+						} else { message.reply({ content: 'the bot is not playing anything right now' }); }
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			// soundbot resume
 			case 'resume': {
-				message.reply('resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient')
-				if (VoiceChannels.has(ConnectionID)) {
-					if (VoiceChannels.get(ConnectionID).get('id') == message.member.voice.channel.id) {
-						let soundChannel = VoiceChannels.get(ConnectionID);
-						let audio = soundChannel.get('audio');
-						if (audio) {
-							if (audio.paused) {
+				message.reply({ content: 'resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient' })
+				if (VoiceChannels.has(ConnectionId)) {
+					if (VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id) {
+						let soundChannel = VoiceChannels.get(ConnectionId);
+						let player = soundChannel.get('audioPlayer');
+						if (player) {
+							// THIS SHOULD WORK BUT DOESNT NEEDS THE NEXT BIT OF CODE
+							player.unpause();
 
-								// THIS SHOULD WORK BUT DOESNT NEEDS THE NEXT BIT OF CODE
-								audio.resume();
+							soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
+							soundChannel.set('pauseStarted', 0); // Reset just to be sure
+							clearTimeout(soundChannel.get('songTimeout')); // Clear previous timeouts just to be sure
+							soundChannel.set('songTimeout', createSongTimeout(soundChannel)); // Create new timeout
 
-								soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
-								soundChannel.set('pauseStarted', 0); // Reset just to be sure
-								clearTimeout(soundChannel.get('songTimeout')); // Clear previous timeouts just to be sure
-								soundChannel.set('songTimeout', createSongTimeout(soundChannel)); // Create new timeout
+							console.log(getTimestamp(soundChannel));
+							console.log('resumed voice channel: ' + ConnectionId);
 
-								// FIX THAT MAKES THINGS WORK BUT IS BAD
-								const fileName = soundChannel.get('playing');
-								setupSound(soundChannel, fileName, getTimestamp(soundChannel) / 1000, message.channel);
-								// END OF FIX
-
-								console.log(getTimestamp(soundChannel));
-								console.log('resumed voice channel: ' + ConnectionID);
-
-							} else { message.reply('the bot is already playing'); }
-						} else { message.reply('the bot is not playing anything right now'); }
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+						} else { message.reply({ content: 'the bot is not playing anything right now' }); }
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			// soundbot skip
 			case 'skip': {
-				let soundChannel = VoiceChannels.get(ConnectionID);
-				if (VoiceChannels.has(ConnectionID)) {
+				let soundChannel = VoiceChannels.get(ConnectionId);
+				if (VoiceChannels.has(ConnectionId)) {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
-						let audio = soundChannel.get('playing');
-						if (audio) {
+						let playing = soundChannel.get('playing');
+						if (playing) {
 							soundChannel.get('eventHandler').emit('killffmpeg');
 							if (soundChannel.get('queue').length > 0) {
 								filename = soundChannel.get('playing');
 								soundChannel.set('playing', false);
 								soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, message.channel);
 							} else {
-								connection = soundChannel.get('connection')
-								connection.play('');
+								let player = soundChannel.get('audioPlayer');
+								player.stop()
 								soundChannel.set('playing', false);
 								soundChannel.set('ended', true);
 							}
 							clearTimeout(soundChannel.get('songTimeout')); // Clear any timeouts we have
-						} else { message.reply('nothing is playing right now'); }
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+						} else { message.reply({ content: 'nothing is playing right now' }); }
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			// soundbot queue
 			case 'queue': {
 
-				let soundChannel = VoiceChannels.get(ConnectionID);
+				let soundChannel = VoiceChannels.get(ConnectionId);
 				if (soundChannel.get('queue').length > 0) {
 					let embed = new MessageEmbed()
 						.setColor('#FF0000')
@@ -554,15 +551,15 @@ client.on('message', async message => {
 					soundChannel.get('queue').forEach(song => {
 						embed.addField(song.get('info').title, song.get('url'));
 					});
-					message.channel.send(embed);
-				} else { message.reply('the queue is empty'); }
+					message.channel.send({ embeds: [embed] });
+				} else { message.reply({ content: 'the queue is empty' }); }
 				break;
 			}
 
 			// soundbot remove
 			case 'remove': {
 				if (args.length == 0) {
-					message.reply('you must suply atleast one number after remove');
+					message.reply({ content: 'you must suply atleast one number after remove' });
 				}
 				for (let i = 0; i < args.length; i++) {
 					if (isNaN(args[i])) {
@@ -570,8 +567,8 @@ client.on('message', async message => {
 					}
 				}
 
-				let soundChannel = VoiceChannels.get(ConnectionID);
-				if (VoiceChannels.has(ConnectionID)) {
+				let soundChannel = VoiceChannels.get(ConnectionId);
+				if (VoiceChannels.has(ConnectionId)) {
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
 						if (soundChannel.get('queue').length > 0) {
 							let queue = soundChannel.get('queue')
@@ -580,7 +577,7 @@ client.on('message', async message => {
 								console.log(args.length + ' ' + args[0])
 								if (queue.length >= +args[0]) {
 									queue.splice(+args[0] - 1, 1); // the first item is not at the first index
-								} else { message.reply('the queue does not have a song at that position'); }
+								} else { message.reply({ content: 'the queue does not have a song at that position' }); }
 								// two arguments
 							} else if (args.length == 2) {
 								console.log(args.length + ' ' + args[0] + ' ' + args[1])
@@ -591,10 +588,10 @@ client.on('message', async message => {
 								}
 								if (queue.length >= +args[0]) {
 									if (queue.length < +args[1]) {
-										message.reply(`removing all songs after ${args[0]}`);
+										message.reply({ content: `removing all songs after ${args[0]}` });
 									}
 									queue.splice(+args[0] - 1, +args[1] - +args[0]);
-								} else { message.reply('the queue does not contain any songs in that range'); }
+								} else { message.reply({ content: 'the queue does not contain any songs in that range' }); }
 								// more than two arguments
 							} else {
 								console.log(args.length + ' ' + args.join(' '));
@@ -609,29 +606,31 @@ client.on('message', async message => {
 									}
 								}
 								if (notRemoved == '') {
-									message.reply(`removed songs at positions: ${args.join(', ')}`);
+									message.reply({ content: `removed songs at positions: ${args.join(', ')}` });
 								} else {
-									message.reply(`tried to remove songs at positions: ${args.join(', ')} but the queue did not contain songs at positions: ${notRemoved.join(', ')}`);
+									message.reply({ content: `tried to remove songs at positions: ${args.join(', ')} but the queue did not contain songs at positions: ${notRemoved.join(', ')}` });
 								}
 							}
-						} else { message.reply('the queue is empty'); }
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+						} else { message.reply({ content: 'the queue is empty' }); }
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			//soundbot seek
 			case 'seek': {
+				message.reply({content: 'Seek does not work at the moment'})
+				return;
 				let start = 0;
 				if (!isNaN(args[0])) {
 					start = +args[0];
 				} else {
-					message.reply('you must suply a number after seek');
+					message.reply({ content: 'you must suply a number after seek' });
 					break;
 				}
 
-				if (VoiceChannels.has(ConnectionID)) {
-					const soundChannel = VoiceChannels.get(ConnectionID);
+				if (VoiceChannels.has(ConnectionId)) {
+					const soundChannel = VoiceChannels.get(ConnectionId);
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
 						const playing = soundChannel.get('playing');
 						if (playing) {
@@ -639,32 +638,34 @@ client.on('message', async message => {
 							const fileName = playing;
 							setupSound(soundChannel, fileName, args[0], message.channel);
 
-						} else { message.reply('the bot is not playing anything right now'); }
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+						} else { message.reply({ content: 'the bot is not playing anything right now' }); }
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			// soundbot timestamp
 			case 'timestamp': {
 
-				const ConnectionID = message.guild.id;
-				if (VoiceChannels.has(ConnectionID)) {
-					const soundChannel = VoiceChannels.get(ConnectionID);
+				const ConnectionId = message.guild.id;
+				if (VoiceChannels.has(ConnectionId)) {
+					const soundChannel = VoiceChannels.get(ConnectionId);
 					if (soundChannel.get('id') == message.member.voice.channel.id) {
 						const playing = soundChannel.get('playing');
 						if (playing) {
 							embed = timestampEmbed(soundChannel);
-							message.channel.send(embed);
-						} else { message.reply('the bot is not playing anything right now'); }
-					} else { message.reply('you must be in the same channel as the bot to use that command'); }
-				} else { message.reply('the bot must be running for you to use that command'); }
+							message.channel.send({ embeds: [embed] });
+						} else { message.reply({ content: 'the bot is not playing anything right now' }); }
+					} else { message.reply({ content: 'you must be in the same channel as the bot to use that command' }); }
+				} else { message.reply({ content: 'the bot must be running for you to use that command' }); }
 				break;
 			}
 
 			// soundbot test
 			case 'test': {
-				message.reply("test");
+				message.reply({ content: "test" });
+				let resoruce = createAudioResource('test.webm')
+				console.log(resoruce)
 				break;
 			}
 
@@ -781,30 +782,29 @@ client.on('message', async message => {
 					}
 					default: {
 						if (func || func == '') {
-							message.reply(`${func} is not a testbot command`);
+							message.reply({ content: `${func} is not a testbot command` });
 							return;
 						}
 					}
 				}
 
-				message.channel.send(embed);
+				message.channel.send({ embeds: [embed] });
 				break;
 			}
 
 			default: {
-				message.reply(`${cmd} is not a soundcommand`)
+				message.reply({ content: `${cmd} is not a soundcommand` })
 			}
 		}
 	}
 });
 
-// Log our bot in using the token from https://discordapp.com/developers/applications/me
-client.login(auth.token);
+
 
 // Define common functions
 
-function queue(ConnectionID, url, info, start, channel) {
-	let soundChannel = VoiceChannels.get(ConnectionID);
+function queue(ConnectionId, url, info, start, channel) {
+	let soundChannel = VoiceChannels.get(ConnectionId);
 	let queueItem = new Collection();
 	queueItem.set('url', url);
 	queueItem.set('info', info);
@@ -814,11 +814,12 @@ function queue(ConnectionID, url, info, start, channel) {
 	soundChannel.get('queue').push(queueItem);
 }
 
-async function playMusic(ConnectionID, url, info, start, channel) {
+// TODO IMPLEMENT SEEK FUNCTION BECAUSE SHIT BROKE
+async function playMusic(ConnectionId, url, info, start, channel) {
 
-	const soundChannel = VoiceChannels.get(ConnectionID);
+	const soundChannel = VoiceChannels.get(ConnectionId);
 
-	console.log(`Now playing "${url}" in ${ConnectionID}`);
+	console.log(`Now playing "${url}" in ${ConnectionId}`);
 
 	//let ratelimited = false;
 	let fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
@@ -875,55 +876,47 @@ async function playMusic(ConnectionID, url, info, start, channel) {
 	ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code}`); });
 
 	ffmpegEmitter.once('fileReady', () => {
-		//console.log('now playing file --------------------------------')
+		console.log('now playing file --------------------------------')
 		setupSound(soundChannel, fileName, start, channel);
 	});
 	// When skipping kill ffmpeg if it is still running to save resources
 	ffmpegEmitter.on('killffmpeg', async () => {
 		if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
 		if (ffmpeg.exitCode == null) {
-			ffmpeg.kill()
-				.then(() => {
-					ffmpegEmitter.emit('killedffmpeg');
-				})
-				.catch(err => {
-					console.log(`error when killing ffmpeg in: ${ConnectionID}:\n${err}`)
-				});
+			ffmpeg.kill();
 		}
 	});
 	/* ------------------------- */
 
 	soundChannel.set('videoLength', info.length * 1000);
 	soundChannel.set('currentVideoInfo', info);
+	soundChannel.set('playing', filename);
+	soundChannel.set('settingUpSong', false);
 
 	embed = youtubeEmbed(url, info);
-	channel.send(embed);
+	channel.send({ embeds: [embed] });
 }
 
 function setupSound(soundChannel, filename, start, channel) {
 
-	connection = soundChannel.get('connection');
+	let player = soundChannel.get('audioPlayer');
 	soundChannel.set('timeStarted', getTime());
 	soundChannel.set('seeked', start * 1000);
 	soundChannel.set('pauseStarted', 0);
 	soundChannel.set('pausedTime', 0);
 	soundChannel.set('playing', filename);
+	soundChannel.set('settingUpSong', false);
 	soundChannel.set('ended', false);
 
-	const stream = fs.createReadStream(filename);
-	console.log(filename);
-	const audio = connection.play(
-		stream,
+	const resource = createAudioResource(
+		fs.createReadStream(filename),
 		{
-			seek: start,
-			StreamType: 'opus',
-			highWaterMark: 16384,
-			bitrate: 'auto',
-			volume: false
-		}
-	);
+			inputType: StreamType.OggOpus,
+			inlineVolume: false
+		});
 
-	soundChannel.set('audio', audio);
+	console.log(player)
+
 	// create backup for the 'finish' event so the bot doesn't stall
 	clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
 	soundChannel.set('songTimeout', createSongTimeout(soundChannel));
@@ -937,7 +930,7 @@ function setupSound(soundChannel, filename, start, channel) {
 		soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
 	});
 
-	audio.on('finish', function () {
+	player.on(AudioPlayerStatus.Idle, function () {
 		if (songOver) { return; }
 		songOver = true;
 		console.log(`Audio finish event triggered in ${soundChannel.get('guild')}`)
@@ -1002,11 +995,11 @@ async function getVideoLink(searchQuery) {
 			}
 
 			if (result != null) {
-				// extracts the video ID and adds it to the link
+				// extracts the video Id and adds it to the link
 				videoId = result.slice(11, 22);
 				videoLink = "https://www.youtube.com/watch?v=" + videoId;
 				// extracts the title of the video
-				videoTitle = reTitle[Symbol.match](result)[0];
+				videoTitle = reTitle[Symbol.match](result)[0].replace('\\u0026', '&');
 				// extracts the thumbnail link of highest quality
 				tempThumbnail = reThumbnail[Symbol.match](result)[0].split(',');
 				videoThumbnailLink = tempThumbnail[tempThumbnail.length - 3].slice(8).slice(0, -1);
