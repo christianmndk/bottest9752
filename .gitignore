@@ -1,6 +1,6 @@
 auth.json
-client_secret.json
-start.js
 .vs
 .vscode
+client_secret.json
+start.js
 /songs/*

@@ -40,7 +40,7 @@ const botIntents = new Intents([Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUIL
 const client = new Client({ intents: botIntents });
 
 // Create some constants
-const minimumWritten = 3; // create a little buffer before we start streaming
+const minimumWritten = 30; // create a little buffer before we start streaming
 const ffmpegVideoFormats = ['avi', 'flac', 'flv', 'gif', 'm4v', 'mjpeg', 'mov', 'mp2', 'mp3', 'mp4', 'mpeg', 'nut', 'oga', 'ogg', 'ogv', 'opus', 'rm', 'tta', 'v64', 'wav', 'webm', 'wv'];
 const ffmpegPictureFormats = ['bmp', 'gif', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'webp'];
 // Only for raw image files that can be converted to something else
@@ -163,14 +163,6 @@ client.on('messageCreate', async message => {
 		args = args.splice(1);
 
 		switch (cmd) {
-			// testbot rip
-			case 'rip': {
-				// Create the attachment using MessageAttaSchment
-				attachment = new MessageAttachment('https://i.imgur.com/w3duR07.png');
-				// Send the attachment in the message channel with a content
-				message.reply({ content: attachment });
-				break;
-			}
 			// testbot ping
 			case 'ping': {
 				message.reply({ content: 'pong!' });
@@ -301,13 +293,6 @@ client.on('messageCreate', async message => {
 
 				let func = args[0]
 				switch (func) {
-					case 'rip': {
-						embed
-							.addField('Execution', 'testbot rip')
-							.addField('Arguments', 'This commands ignores all arguments')
-							.addField('Explanation', 'Tests if the bot is working')
-						break;
-					}
 					case 'ping': {
 						embed
 							.addField('Execution', 'testbot ping')
