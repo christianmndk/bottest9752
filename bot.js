@@ -915,7 +915,8 @@ function setupSound(soundChannel, filename, start, channel) {
 			inlineVolume: false
 		});
 
-	console.log(player)
+	//console.log(player)
+	player.play( resource )
 
 	// create backup for the 'finish' event so the bot doesn't stall
 	clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
