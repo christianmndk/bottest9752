@@ -811,13 +811,13 @@ function queue(ConnectionID, url, info, start, channel) {
 	soundChannel.get('queue').push(queueItem);
 }
 
-async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXtimes=0) {
+async function playMusic(ConnectionID, url, info, start, channel) {
 
 	const soundChannel = VoiceChannels.get(ConnectionID);
 
 	console.log(`Now playing "${url}" in ${ConnectionID}`);
-	console.log(`Rate limited ${ratelimmitedXtimes} times`)
 
+	//let ratelimited = false;
 	let fileName = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild')+'.opus';
 
 	// Delete previous file if found
@@ -880,11 +880,11 @@ async function playMusic(ConnectionID, url, info, start, channel, ratelimmitedXt
 		if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
 		if (ffmpeg.exitCode == null) { 
 			ffmpeg.kill()
-			.then(() => {
-				ffmpegEmitter.emit('killedffmpeg')
+			.then(() => { 
+				ffmpegEmitter.emit('killedffmpeg'); 
 			})
-			.catch(err => {
-				console.log(`error when killing ffmpeg in: ${ConnectionID}:\n${err}`)
+			.catch(err => { 
+				console.log(`error when killing ffmpeg in: ${ConnectionID}:\n${err}`) 
 			});
 		}
 	});
