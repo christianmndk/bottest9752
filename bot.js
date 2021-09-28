@@ -1128,15 +1128,3 @@ async function deleteFile(filename) {
 			});
 	}
 }
-
-// used privatly to inject a song to the first position in the queue silently
-function InjectSong(ConnectionID, url, info, start, channel) {
-	let soundChannel = VoiceChannels.get(ConnectionID);
-	let queueItem = new Collection();
-	queueItem.set('url', url);
-	queueItem.set('info', info);
-	queueItem.set('start', start);
-	queueItem.set('channel', channel);
-
-	soundChannel.get('queue').unshift(queueItem);
-}
