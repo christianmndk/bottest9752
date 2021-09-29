@@ -27,6 +27,8 @@ const request = https.get(attachment.url, function(response) {
 */
 
 // Extract the required classes from the required modules
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
 const { Client, MessageAttachment, MessageEmbed, Collection, Intents } = require('discord.js');
 const { joinVoiceChannel, getVoiceConnection, createAudioResource, createAudioPlayer, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
 const { spawn } = require('child_process');
@@ -40,6 +42,7 @@ const botIntents = new Intents([Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUIL
 const client = new Client({ intents: botIntents });
 
 // Create some constants
+const DEV_CLIENT_ID = '724737960871723048';
 const minimumWritten = 30; // create a little buffer before we start streaming
 const ffmpegVideoFormats = ['avi', 'flac', 'flv', 'gif', 'm4v', 'mjpeg', 'mov', 'mp2', 'mp3', 'mp4', 'mpeg', 'nut', 'oga', 'ogg', 'ogv', 'opus', 'rm', 'tta', 'v64', 'wav', 'webm', 'wv'];
 const ffmpegPictureFormats = ['bmp', 'gif', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'webp'];
@@ -58,9 +61,87 @@ console.log(getTime());
 var auth = require('./auth.json');
 client.login(auth.token);
 
+/*---------------------- *
+* REGISTRERING COMMANDS  *
+* ----------------------*/
+
+// A list of all available functions
+client.commands = new Collection();
+
+async function updateGuildCommands(guildId, clientId, refresh = true) {
+	// Clear all commands not all will exist anymore
+	client.commands = new Collection();
+
+	const commands = []
+	const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
+	console.log(`All files added as commands: ${commandFiles.join(' ')}`)
+	for (const file of commandFiles) {
+		const command = require(`./commands/${file}`);
+		// Add it to the list of commands
+		client.commands.set(command.data.name, command)
+		// Reregistre all commands
+		if (refresh) {
+			commands.push(command.data.toJSON());
+		}
+	}
+
+	// If we only want to update the command list dont run code after this
+	if (!refresh) { return; }
+
+	const rest = new REST({ version: 9 }).setToken(auth.token);
+
+	try {
+		console.log(`Refresing guild slash commands in ${guildId}`);
+		await rest.put(
+			Routes.applicationGuildCommands(clientId, guildId),
+			{ body: commands }
+		);
+		console.log(`Succesfully reloaded guild slash commadns in ${guildId}`)
+
+	} catch (err) {
+		console.error(`Error when reloading guild commands in ${guildId}`)
+		console.error(err)
+	}
+}
+
+/*-------------------- *
+*  EXECUTING COMMANDS  *
+* --------------------*/
+
+// Everytime we start the bot refreshes the command list
+updateGuildCommands(null, null, false)
+
+client.on('interactionCreate', async interaction => {
+	console.log('Got interaction');
+	//console.log(interaction);
+	if (!interaction.isCommand()) { return; }
+	console.log('interaction is command')
+	//console.log(interaction)
+
+	const cmd = client.commands.get(interaction.commandName);
+	console.log(cmd.data.name)
+
+	if (!cmd) {
+		console.log(`${cmd.data.name} is not a registered command`)
+		return;
+	}
+
+	// Execute our command if everything passed
+	try {
+		await interaction.deferReply();
+		await cmd.execute(interaction)
+	} catch (err) {
+		console.error(`error while running: ${cmd.data.name} in: ${interaction.guildId}`)
+		console.error(err)
+		await interaction.followUp({ content: `${cmd.data.name} failed when executing`, ephemeral: true }) 
+	}
+
+});
+
 // Adding a voice connection
 async function addVoiceConnection(message) {
-	const connection = await joinVoiceChannel({
+	const connection = joinVoiceChannel({
 		channelId: message.member.voice.channel.id,
 		guildId: message.guildId,
 		adapterCreator: message.guild.voiceAdapterCreator
@@ -156,212 +237,9 @@ process.on('SIGINT', async function () {
 
 client.on('messageCreate', async message => {
 	// If the message is starts with testbot and author is not a bot
-	if (message.content.substring(0, 8) == 'testbot ' && !message.author.bot) {
-		console.log('recieved command');
-		var args = message.content.substring(8).split(' ');
-		var cmd = args[0];
-		args = args.splice(1);
-
-		switch (cmd) {
-			// testbot ping
-			case 'ping': {
-				message.reply({ content: 'pong!' });
-				console.log(message);
-				break;
-			}
-			// testbot webm
-			case 'webm': {
-				if (!message.attachments.first()) {
-					message.reply({ content: 'the command \'webm\' requires a webm attachment sent with the message' });
-					break;
-				}
-				// Go through each attachment
-				message.attachments.each(attachment => {
-					// Create an identical attachment as the one in the message and send it back
-					name = attachment.name.split('.').slice(0, attachment.name.split('.').length - 1).join() + ".mp4";
-					if (!attachment.name.toLowerCase().endsWith('webm')) {
-						message.reply({ content: attachment.name + ' was not converted because it is not a webm' });
-					}
-					else {
-						var ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', 'file.mp4']);
-						ffmpeg.on('close', code => {
-							if (code == 0) {
-								console.log(attachment);
-								console.log('Sending converted');
-								Converted = new MessageAttachment('./file.mp4', name);
-								message.reply({ files: Converted }).then(fs.unlink('./file.mp4', er => { if (er) { console.error('An error occurred:\n', er) } }));
-							}
-							else {
-								console.log('ffmpeg failed during conversion');
-								message.reply({ content: attachment.name + ' could not be converted because an error happened during conversion' });
-							}
-						});
-					}
-				});
-				break;
-			}
-			// testbot convert
-			case 'convert': {
-				let name;
-				let isVideo;
-				// check for new file type
-				if (args.length == 0) {
-					message.reply({ content: 'you need to provide a new file type for the file' });
-					return;
-				} else if (ffmpegVideoFormats.includes(args[0])) {
-					isVideo = true;
-				} else if (ffmpegPictureFormats.includes(args[0])) {
-					isVideo = false;
-				} else {
-					message.reply({ content: 'the first argument must be a valid file extension like mp4 or jpg' });
-					return;
-				}
-				// check if user made a new name otherwise give it the old name
-				if (args.length > 1 && typeof args[1] === 'string') {
-					name = args[1] + '.' + args[0];
-				}
-				// get the latest file
-				message.channel.messages.fetch({ limit: 10 })
-					.then(messages => { return messages.filter(m => m.attachments.first() && !m.author.bot); })
-					.then(messages => {
-						if (!messages.first()) { message.reply({ content: 'found no pictures or images 10 messages back, aborting' }); }
-						else {
-							messages.first().attachments.each(attachment => {
-								// Check for matching file type
-								let originalFileExtension = attachment.name.split('.')[attachment.name.split('.').length - 1].toLowerCase();
-								if ((ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension)) && isVideo) {
-									message.reply({ content: 'the latest attachment was a picture and you tried to convert it into a video, aborting' });
-									return;
-								} else if (ffmpegVideoFormats.includes(originalFileExtension) && !isVideo) {
-									message.reply({ content: 'the latest attachment was a video and you tried to convert it into a picture, aborting' });
-									return;
-								} else if (!(ffmpegRawImageFormats.includes(originalFileExtension) || ffmpegPictureFormats.includes(originalFileExtension) || ffmpegVideoFormats.includes(originalFileExtension))) {
-									message.reply({ content: 'uploaded filetype is not supported' });
-								}
-								// check for name
-								if (!name) { name = attachment.name.split('.').slice(0, attachment.name.split('.').length - 1).join('.') + '.' + args[0]; }
-								// convert the file
-								let file = `./${name}`;
-								let ffmpeg = spawn('ffmpeg', ['-y', '-i', attachment.url, '-c:a:v', 'copy', name]);
-
-								ffmpeg.on('close', code => {
-									if (code == 0) {
-										console.log(attachment.url);
-										console.log('Sending converted');
-										Converted = new MessageAttachment(file, name);
-										message.reply({ files: Converted }).then(fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } })).catch(er => console.error('An error occurred and was caught:\n', er));
-									}
-									else {
-										console.log('ffmpeg failed during conversion');
-										message.reply({ content: attachment.name + ' could not be converted because an error happened during conversion' });
-										fs.unlink(file, er => { if (er) { console.error('An error occurred:\n', er) } });
-									}
-								});
-							});
-						}
-					});
-				break;
-			}
-			//testbot jschlatt
-			case 'jschlatt': {
-				stupidcommands.Jschlatt(message, args);
-				break;
-			}
-			// testbot spotify
-			case 'spotify': {
-				stupidcommands.spotify(message);
-				break;
-			}
-			// testbot test
-			case 'test': {
-
-				break;
-			}
-
-			case 'help': {
-				const embed = new MessageEmbed()
-					.setColor('#0000FF')
-
-				if (args.length == 0) {
-					embed
-						.setTitle('testbot commands')
-						.addField('Help', 'Use testbot help [function] to get more detailed help on the functions')
-						.addField('Conversion', 'webm\nconvert')
-						.addField('Fun', 'jschlatt\nspotify (experimental)')
-						.addField('Test', 'rip\nping\ntest');
-				}
-
-				let func = args[0]
-				switch (func) {
-					case 'ping': {
-						embed
-							.addField('Execution', 'testbot ping')
-							.addField('Arguments', 'This commands ignores all arguments')
-							.addField('Explanation', 'Pings the bot to see if it is running')
-						break;
-					}
-					case 'webm': {
-						embed
-							.addField('Execution', 'testbot webm (filetype)')
-							.addField('Arguments', '1\nfiletype: the filetype to convert the webm into')
-							.addField('Explanation', 'Looks at your messages attachments and converts them into the desired filetype from a webm file if posible.\nThis commands can be slow');
-						break;
-					}
-					case 'convert': {
-						embed
-							.addField('Execution', 'testbot convert (filetype)')
-							.addField('Arguments', '1\nfiletype: the filetype to convert the file into')
-							.addField('explanation', 'Looks 10 messages back and converts the first attachment it finds into the desired filetype if posible.\nThis commands can be slow');
-						break;
-					}
-					case 'jschlatt': {
-						embed
-							.addField('Execution', 'testbot jschlatt (number)')
-							.addField('Arguments', '1\nnumber: the amount of names you want')
-							.addField('Explanation', 'Gives a list of (number) names that jschlatt has been called')
-						break;
-					}
-					case 'spotify': {
-						embed
-							.addField('EXPERIMENTAL', 'THIS FUNCTION IS EXPERIMENTAL AND WILL LIKELY NOT WORK')
-							.addField('Execution', 'testbot spotify')
-							.addField('Arguments', 'This commands ignores all arguments')
-							.addField('Explanation', 'Sends an embed with information about the song you are listening to on spotify');
-						break;
-					}
-					case 'test': {
-						embed
-							.addField('DEV FUNCTION', 'THIS FUNCTION IS MEANT FOR TESTING PURPOSES AND SHOULD NOT BE EXECUTED AS IT COULD HAVE UNINTENDED CONSEQUENCES')
-							.addField('Execution', 'testbot test')
-							.addField('Arguments', 'This commands most likely ignores all arguments')
-							.addField('Explanation', 'A commands used by the dev team to test new function\nIt should not do anything, but dont test your luck');
-						break;
-					}
-					case 'help': {
-						embed
-							.addField('Execution', 'testbot help [function]')
-							.addField('Arguments', '0 or 1\nFunction: the function you want help with')
-							.addField('Explanation', `0 arguments: Prints a list of all testbot commands
-						1 argument: Gives detalied help on (function)`)
-						break;
-					}
-					default: {
-						if (func || func == '') {
-							message.reply({ content: `${func} is not a testbot command` });
-							return;
-						}
-					}
-				}
-
-				message.channel.send({ embeds: [embed] });
-				break;
-			}
-			// Just add any case commands if you want to..
-
-			default: {
-				message.reply({ content: `${cmd} is not a testbot command` })
-			}
-		}
+	if (message.content == 'updateDevCommands' && message.author.id == '253543726696235008') {
+		message.reply('will do!');
+		updateGuildCommands(message.guildId, DEV_CLIENT_ID);
 	}
 
 	// Voice channel commands
@@ -604,7 +482,7 @@ client.on('messageCreate', async message => {
 
 			//soundbot seek
 			case 'seek': {
-				message.reply({content: 'Seek does not work at the moment'})
+				message.reply({ content: 'Seek does not work at the moment' })
 				return;
 				let start = 0;
 				if (!isNaN(args[0])) {
@@ -784,8 +662,6 @@ client.on('messageCreate', async message => {
 	}
 });
 
-
-
 // Define common functions
 
 function queue(ConnectionId, url, info, start, channel) {
@@ -901,7 +777,7 @@ function setupSound(soundChannel, filename, start, channel) {
 		});
 
 	//console.log(player)
-	player.play( resource )
+	player.play(resource)
 
 	// create backup for the 'finish' event so the bot doesn't stall
 	clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
