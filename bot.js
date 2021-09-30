@@ -32,6 +32,7 @@ const { Routes } = require('discord-api-types/v9');
 const { Client, MessageAttachment, MessageEmbed, Collection, Intents } = require('discord.js');
 const { joinVoiceChannel, getVoiceConnection, createAudioResource, createAudioPlayer, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
 const { spawn } = require('child_process');
+const { getTime } = require('./scripts/helper')
 const EventEmitter = require('events');
 
 // setup event emitter clas
@@ -52,9 +53,7 @@ const ffmpegRawImageFormats = ['cr2', 'nef', 'orf', 'raw', 'sr2'];
 // Create organiser for voicechannels
 let VoiceChannels = new Map();
 
-// Create function to get time in milliseconds
-function getTime() { return parseInt(new Date().getTime()); };
-
+// Log at initiation
 console.log(getTime());
 
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
@@ -337,7 +336,6 @@ client.on('messageCreate', async message => {
 
 			// soundbot pause
 			case 'pause': {
-				message.reply({ content: 'resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient' })
 				if (VoiceChannels.has(ConnectionId)) {
 					if (VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id) {
 						let soundChannel = VoiceChannels.get(ConnectionId);
@@ -355,7 +353,6 @@ client.on('messageCreate', async message => {
 
 			// soundbot resume
 			case 'resume': {
-				message.reply({ content: 'resume is currently broken because of backend problems with node.js. A fix has been implemented but it is inefficient' })
 				if (VoiceChannels.has(ConnectionId)) {
 					if (VoiceChannels.get(ConnectionId).get('id') == message.member.voice.channel.id) {
 						let soundChannel = VoiceChannels.get(ConnectionId);
@@ -801,25 +798,7 @@ function setupSound(soundChannel, filename, start, channel) {
 	});
 }
 
-function createSongTimeout(soundChannel) {
-	// We increase the expected remaining time by 1 second incase something funky happens
-	let timeoutLength = soundChannel.get('videoLength') - soundChannel.get('seeked') - soundChannel.get('pausedTime') + 1000
-	let timeout = setTimeout(() => { soundChannel.get('eventHandler').emit('killSong'); }, timeoutLength);
-	console.log(`created timeout in: ${soundChannel.get('guild')} with length: ${timeoutLength}`)
-	return timeout;
-}
 
-let filename = "assets/DefaultSearch.txt";
-async function getDefaultSearchQuery() {
-	defaultSearchQuery = new Promise(function (resolve) {
-		fs.readFile(filename, 'utf8', function (err, data) {
-			if (err) throw err;
-			const defaultSearchArray = data.split(',');
-			resolve(defaultSearchArray[Math.floor(Math.random() * defaultSearchArray.length)])
-		});
-	});
-	return defaultSearchQuery
-}
 
 // gets video link from search query
 async function getVideoLink(searchQuery) {
@@ -953,33 +932,10 @@ function _TimestampFormat(time) {
 function getTimestamp(soundChannel) {
 	let timestamp = getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked');
 	if (soundChannel.get('audio')) {
-		if (soundChannel.get('audio').paused) {
+		if (soundChannel.get('pauseStarted')) {
 			timestamp -= (getTime() - soundChannel.get('pauseStarted'));
 		}
 	}
 	return parseInt(timestamp);
 }
 
-async function deleteFile(filename) {
-	let exists = await fsprom.access(filename)
-		.then(() => { return true; })
-		.catch(err => {
-			if (err.code !== 'ENOENT') {
-				console.log(`unexpected error when checking for song file:\n${err}\nTrying to delete anyways`);
-				return true;
-			}
-			else if (err.code == 'ENOENT') {
-				console.log(`${filename} is already deleted`);
-				return false;
-			}
-		});
-	if (exists) {
-		fsprom.rm(filename, { force: true, maxRetries: 1000, recursive: true })
-			.catch(err => {
-				console.log(`unexpected error when deleting for song file:\n${err}`);
-			})
-			.then(() => {
-				console.log(`Succesfully deleted ${filename}`);
-			});
-	}
-}
