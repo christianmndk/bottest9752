@@ -109,7 +109,7 @@ async function updateGuildCommands(guildId, clientId, refresh = true) {
 * --------------------*/
 
 // Everytime we start the bot refreshes the command list
-updateGuildCommands(null, null, false)
+updateGuildCommands(null, null, false);
 
 client.on('interactionCreate', async interaction => {
 	console.log('Got interaction');
@@ -138,7 +138,7 @@ client.on('interactionCreate', async interaction => {
 
 });
 
-// Adding a voice connection
+// Adding a voice
 async function addVoiceConnection(message) {
 	const connection = joinVoiceChannel({
 		channelId: message.member.voice.channel.id,
@@ -239,6 +239,10 @@ client.on('messageCreate', async message => {
 	if (message.content == 'updateDevCommands' && message.author.id == '253543726696235008') {
 		message.reply('will do!');
 		updateGuildCommands(message.guildId, DEV_CLIENT_ID);
+	}
+	if (message.content == 'refreshDevCommands' && message.author.id == '253543726696235008') {
+		message.reply('will do!');
+		updateGuildCommands(null, null, false);
 	}
 
 	// Voice channel commands

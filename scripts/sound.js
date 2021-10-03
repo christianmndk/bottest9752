@@ -1,9 +1,15 @@
-const { createAudioResource} = require('@discordjs/voice');
+const { createAudioResource, StreamType, AudioPlayerStatus} = require('@discordjs/voice');
 const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
+const EventEmitter = require('events');
+const https = require('https');
+
 const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile } = require('../scripts/helper.js');
 const { VoiceChannels } = require('../scripts/voiceConnection')
+const { youtubeEmbed } = require('../scripts/embeds')
 
+const mainPath = process.mainModule.path;
+const minimumWritten = 30; // create a little buffer before we start streaming
 
 module.exports = {
     queue: function (ConnectionId, url, info, start, channel) {
@@ -24,7 +30,7 @@ module.exports = {
 		console.log(`Now playing "${url}" in ${ConnectionId}`);
 
 		//let ratelimited = false;
-		let filename = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
+		let filename = mainPath + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
 
 		// Delete previous file if found
 		deleteFile(filename);
@@ -33,8 +39,8 @@ module.exports = {
 		// This should mean that we allways have a clean file for ffmpeg
 		soundChannel.set('fileNumber', soundChannel.get('fileNumber') + 1);
 
-		filename = __dirname + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
-
+		filename = mainPath + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
+		console.log(filename)
 		// Has to contain " or else it will not run on the cmd.exe shell
 		let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
 		let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], { shell: 'cmd.exe' });
@@ -46,8 +52,9 @@ module.exports = {
 		const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
 		//const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
 		ytdl.stderr.on('data', async data => { // messages from ytdl
+			console.log(`ytdl: stderr: ${data}`);
 			if (reDownSpeed[Symbol.match](`${data}`)) {
-				console.log(`ytdl: stderr: ${data}`);
+				//console.log(`ytdl: stderr: ${data}`);
 			}
 		});
 
@@ -65,6 +72,7 @@ module.exports = {
 		let written = 0;
 		// check when the audio file has some data
 		ffmpeg.stderr.on('data', async data => {
+			console.log( `ffmpeg: stderr: ${data}`);
 			if (`${data}`.startsWith('size=')) {
 				written = reWritten[Symbol.match](`${data}`)[0].substring(3);
 				written = written.split(':');
@@ -79,7 +87,7 @@ module.exports = {
 
 		ffmpegEmitter.once('fileReady', () => {
 			console.log('now playing file --------------------------------')
-			this.setupSound(soundChannel, filename, start, channel);
+			self.setupSound(soundChannel, filename, start, channel);
 		});
 		// When skipping kill ffmpeg if it is still running to save resources
 		// THIS SHOULD BE MOVED AWAY SO IT DOES NOT PERSIST
@@ -150,7 +158,7 @@ module.exports = {
 		}
 		let videoId = "";
 		let video = new Promise(function (resolve, reject) {
-			let wholeDocument = new MyEmitter;
+			let wholeDocument = new EventEmitter();
 			https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
 				let documentBody = "";
 				res.on('data', (data) => {
@@ -219,3 +227,5 @@ module.exports = {
 		return parseInt(timestamp);
 	}
 }
+
+const self = module.exports

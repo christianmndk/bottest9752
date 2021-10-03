@@ -12,7 +12,7 @@ module.exports = {
 		if (!interaction.guild) {
 			await interaction.editReply('you can only use this command in a guild');
 			return;
-		} else if (interaction.member.voice.channel) {
+		} else if (!interaction.member.voice.channel) {
 			await interaction.editReply('you must be in a voice channel to use that command');
 			return;
 		}

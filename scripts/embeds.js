@@ -1,5 +1,5 @@
 const { MessageEmbed } = require('discord.js');
-const { getTimestamp } = require('../scripts/sound')
+const { getTimestamp } = require('../scripts/sound'); // MIGHT NOT WORK BECAUSE OF CIRCULAR REFERENCE
 
 module.exports = {
     youtubeEmbed: function (url, videoInfo) {

@@ -53,23 +53,20 @@ module.exports = {
 
 		let newFormat = interaction.options.getString('format');
 		if (!(ffmpegRawImageFormats.includes(newFormat) || ffmpegPictureFormats.includes(newFormat) || ffmpegVideoFormats.includes(newFormat))) {
-			console.log('123123')
-			await interaction.editReply('The requested format is not supported')
+			await interaction.editReply('The requested format is not supported');
 			return;
 		} else if (isVideo && !ffmpegVideoFormats.includes(newFormat)) {
-			console.log('2222222222222222')
-			await interaction.editReply('Cannot convert a video or audio file into the requested filetype')
+			await interaction.editReply('Cannot convert a video or audio file into the requested filetype');
 			return;
 		} else if (!isVideo && !(ffmpegPictureFormats.includes(newFormat) || ffmpegRawImageFormats.includes(newFormat))) {
-			console.log('3333333333333')
-			await interaction.editReply('Cannot convert an image file into the requested filetype')
+			await interaction.editReply('Cannot convert an image file into the requested filetype');
 			return;
 		}
 
 		// check if user made a new name otherwise give it the old name
 		let filename = interaction.options.getString('name');
 		if (filename) {
-			filename += `.${newFormat}`
+			filename += `.${newFormat}`;
 		}
 		console.log('GOT HERE LOL')
 		// get the latest file
@@ -77,8 +74,8 @@ module.exports = {
 			.then(messages => {
 				return messages.filter((m) => {
 					if (!m.attachments.first()) { return false; }
-					if (isVideo) { return ffmpegVideoFormats.includes(m.attachments.first().name.split('.').at(-1)) && !m.author.bot }
-					else { return ffmpegPictureFormats.includes(m.attachments.first().name.split('.').at(-1)) && !m.author.bot }
+					if (isVideo) { return ffmpegVideoFormats.includes(m.attachments.first().name.split('.').at(-1)) && !m.author.bot; }
+					else { return ffmpegPictureFormats.includes(m.attachments.first().name.split('.').at(-1)) && !m.author.bot; }
 				});
 			})
 			.then(messages => {

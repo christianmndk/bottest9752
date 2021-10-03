@@ -1,8 +1,8 @@
 const { joinVoiceChannel, createAudioPlayer } = require('@discordjs/voice');
 const EventEmitter = require('events');
-
+const VoiceChannels = new Map();
 module.exports = {
-	VoiceChannels: new Map(),
+	VoiceChannels: VoiceChannels,
 	addVoiceConnection: async function (interaction) {
 		const connection = joinVoiceChannel({
 			channelId: interaction.member.voice.channel.id,
@@ -32,6 +32,7 @@ module.exports = {
 
 		//console.log(info.get('guild'));
 		connection.subscribe(info.get('audioPlayer')); // Connect the audio connection to the audioplayer
+		console.log(VoiceChannels);
 		VoiceChannels.set(info.get('guild'), info); // The guild id is used to uniquely identify each server
 
 		info.get('eventHandler').on('SongOver', async function PlayNextSong(soundChannel, filename, channel) {
@@ -59,7 +60,7 @@ module.exports = {
 			guildId: guildId,
 			adapterCreator: interaction.guild.voiceAdapterCreator
 		});
-		info = this.VoiceChannels.get(guildId);
+		info = VoiceChannels.get(guildId);
 		console.log(`Moving from ${info.get('id')} into ${interaction.member.voice.channel.id} in ${guildId}`)
 		info.get('connection').destroy();
 		info.set('connection', connection);

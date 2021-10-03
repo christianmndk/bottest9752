@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { timestampEmbed } = require('../scripts/embeds')
+const { VoiceChannels } = require('../scripts/voiceConnection')
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -16,7 +17,7 @@ module.exports = {
 			return;
 		}
 		const soundChannel = VoiceChannels.get(ConnectionId);
-		if (!soundChannel.get(playing)) {
+		if (!soundChannel.get('playing')) {
 			await interaction.editReply('The bot is not playing anything right now');
 			return;
 		}

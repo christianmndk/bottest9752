@@ -1,3 +1,6 @@
+const fsprom = require('fs/promises');
+const fs = require('fs')
+
 let filename = "assets/DefaultSearch.txt";
 
 module.exports = {

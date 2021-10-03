@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { VoiceChannels, addVoiceConnection } = require('../scripts/voiceConnection');
-const { playMusic, queue } = require('../scripts/sound');
+const { playMusic, queue, getVideoLink } = require('../scripts/sound');
 
 
 module.exports = {
@@ -28,11 +28,11 @@ module.exports = {
 		if (!interaction.guild) {
 			await interaction.editReply('you can only use this command in a guild');
 			return;
-		} else if (interaction.member.voice.channel) {
+		} else if (!interaction.member.voice.channel) {
 			await interaction.editReply('you must be in a voice channel to use that command');
 			return;
 		} else if (!VoiceChannels.has(ConnectionId)) {
-			await addVoiceConnection(message);
+			await addVoiceConnection(interaction);
 			console.log('added voice channel:\n' + ConnectionId);
 		}
 		soundChannel = VoiceChannels.get(ConnectionId)
@@ -47,16 +47,15 @@ module.exports = {
 		const start = interaction.options.getInteger('seek');
 		if (soundChannel.get('playing') || soundChannel.get('settingUpSong')) {
 			const videoInfo = await getVideoLink(searchQuery); // must be run in both or else we risk playing two song simultaneously 
-			queue(ConnectionId, videoInfo.url, videoInfo, start, message.channel);
+			queue(ConnectionId, videoInfo.url, videoInfo, start, interaction.channel);
 			console.log(`Queued "${videoInfo.url}" in ${ConnectionId}`);
 			await interaction.editReply({ content: 'your song is now queued' });
 			return;
 		} else {
 			soundChannel.set('settingUpSong', true);
 			const videoInfo = await getVideoLink(searchQuery);
-			playMusic(ConnectionId, videoInfo.url, videoInfo, start, message.channel);
-		} 
-
-		await interaction.reply('Pong!');
+			playMusic(ConnectionId, videoInfo.url, videoInfo, start, interaction.channel);
+			await interaction.editReply({ content: 'your song will start shortly' });
+		}
 	},
 };
