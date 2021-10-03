@@ -1,8 +1,8 @@
 const { createAudioResource} = require('@discordjs/voice');
 const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
-const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile } = require('./scripts/helper.js');
-const { VoiceChannels } = require('./scripts/voiceConnection')
+const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile } = require('../scripts/helper.js');
+const { VoiceChannels } = require('../scripts/voiceConnection')
 
 
 module.exports = {

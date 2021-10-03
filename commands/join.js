@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { addVoiceConnection, VoiceChannels, moveVoiceConnection } = require('./scripts/voiceConnection')
+const { addVoiceConnection, VoiceChannels, moveVoiceConnection } = require('../scripts/voiceConnection')
 
 module.exports = {
 	data: new SlashCommandBuilder()

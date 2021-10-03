@@ -1,5 +1,5 @@
 const { MessageEmbed } = require('discord.js');
-const { getTimestamp } = require('./scripts/sound')
+const { getTimestamp } = require('../scripts/sound')
 
 module.exports = {
     youtubeEmbed: function (url, videoInfo) {
