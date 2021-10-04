@@ -1,33 +1,7 @@
-const fs = require('fs');
-const { Client, MessageAttachment, MessageEmbed } = require('discord.js');
+const { MessageEmbed } = require('discord.js');
 
 
 module.exports = {
-	Jschlatt: function (message, args, reply = true) {//just send random names from a list in /assest/message.txt
-		const filename = "assets/message.txt";
-
-		fs.readFile(filename, 'utf8', function (err, data) {
-			if (err) throw err;
-			const namearray = data.split(',');
-			var newslat = "";
-
-			if (args[0] >= 1) {
-				for (let i = 0; i < args[0]; i++) {
-					var randomNumber = Math.floor(Math.random() * namearray.length);
-					const element = namearray[randomNumber];
-					newslat += element + "\n";
-				}
-				console.log(newslat);
-				if (reply == true)
-					message.reply({content: newslat});
-				else
-					return newslat;
-			}
-			else
-				if (reply == true)
-					message.reply({ content: "the first argument must be an integer larger than or equal to 1"});
-		});
-	},
 	spotify: function (message) {
 		const spotify = message.author.presence.activities[0];
 		if (!spotify) { message.reply('You are not listening to spotify'); return; }

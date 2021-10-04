@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { addVoiceConnection, VoiceChannels, moveVoiceConnection } = require('../scripts/voiceConnection')
+const { addVoiceConnection, moveVoiceConnection } = require('../scripts/voiceConnection');
+const { VoiceChannels } = require('../scripts/helper');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -20,7 +21,7 @@ module.exports = {
 		/*------------ *
 		*  JOIN VOICE  *
 		* ------------*/
-		let ConnectionId = interaction.guildId;
+		const ConnectionId = interaction.guildId;
 		if (!VoiceChannels.has(ConnectionId)) {
 			await addVoiceConnection(interaction);
 			await interaction.editReply('Joined you voiceChannel');

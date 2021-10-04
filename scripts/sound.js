@@ -1,15 +1,14 @@
-const { createAudioResource, StreamType, AudioPlayerStatus} = require('@discordjs/voice');
+const { createAudioResource, StreamType } = require('@discordjs/voice');
+const { Collection } = require('discord.js');
 const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const https = require('https');
 
-const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile } = require('../scripts/helper.js');
-const { VoiceChannels } = require('../scripts/voiceConnection')
-const { youtubeEmbed } = require('../scripts/embeds')
+const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels } = require('../scripts/helper.js');
 
-const mainPath = process.mainModule.path;
-const minimumWritten = 30; // create a little buffer before we start streaming
+const mainPath = require.main.path;
+const minimumWritten = 20; // create a little buffer before we start streaming
 
 module.exports = {
     queue: function (ConnectionId, url, info, start, channel) {
@@ -45,6 +44,9 @@ module.exports = {
 		let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
 		let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], { shell: 'cmd.exe' });
 		let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '128k', filename], { shell: 'cmd.exe' });
+		// Save them to the soundchannel for further procesing
+		soundChannel.set('ytdl', ytdl)
+		soundChannel.set('ffmpeg', ffmpeg)
 
 		/* -------YTDL EVENTS------- */
 		ytdl.on('error', async error => { console.log('error: ' + error) });
@@ -52,60 +54,47 @@ module.exports = {
 		const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
 		//const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
 		ytdl.stderr.on('data', async data => { // messages from ytdl
-			console.log(`ytdl: stderr: ${data}`);
+			//console.log(`ytdl: stderr: ${data}`);
 			if (reDownSpeed[Symbol.match](`${data}`)) {
-				//console.log(`ytdl: stderr: ${data}`);
+				console.log(`ytdl: stderr: ${data}`);
 			}
 		});
 
 		ytdl.on('close', (code) => {
-			console.log(`ytdl process exited with code ${code}`);
+			console.log(`ytdl process exited with code ${code} in ${ConnectionId}`);
 			ffmpeg.stdin.end(); // lets ffmpeg end
 		});
 
 		/* ------FFMPEG EVENTS------ */
 
-		// Used to registre when ffmpeg starts filling up the file
-		const ffmpegEmitter = soundChannel.get('eventHandler');
 		// Find how much we have written to file
 		const reWritten = /me=[:\d]*/;
 		let written = 0;
+		let emittedFileReady = false;
 		// check when the audio file has some data
 		ffmpeg.stderr.on('data', async data => {
-			console.log( `ffmpeg: stderr: ${data}`);
 			if (`${data}`.startsWith('size=')) {
 				written = reWritten[Symbol.match](`${data}`)[0].substring(3);
 				written = written.split(':');
 				written = parseInt(written[0], 10) * 3600 + parseInt(written[1], 10) * 60 + parseInt(written[2], 10);
-				// once we have enough start the song (We must have at least 5)
-				if ((written > start && written > minimumWritten) || written >= soundChannel.get('videoLength') / 1000) { ffmpegEmitter.emit('fileReady'); }
+				console.log( `ffmpeg: stderr: ${data}`);
+				// once we have enough start the song (We must have at least "minimumWritten" seconds)
+				if ( ((written > start && written > minimumWritten) || written >= soundChannel.get('videoLength') / 1000) && !emittedFileReady ) { 
+					soundChannel.get('eventHandler').emit('fileReady', filename, start, channel); 
+					emittedFileReady = true;
+				}
 				//console.log( `ffmpeg: stderr: ${data}`);
 			}
 			//console.log( `ffmpeg: stderr: ${data}`);
 		});
-		ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code}`); });
+		ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code} in ${ConnectionId}`); });
 
-		ffmpegEmitter.once('fileReady', () => {
-			console.log('now playing file --------------------------------')
-			self.setupSound(soundChannel, filename, start, channel);
-		});
-		// When skipping kill ffmpeg if it is still running to save resources
-		// THIS SHOULD BE MOVED AWAY SO IT DOES NOT PERSIST
-		ffmpegEmitter.on('killffmpeg', async () => {
-			if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
-			if (ffmpeg.exitCode == null) {
-				ffmpeg.kill();
-			}
-		});
 		/* ------------------------- */
 
 		soundChannel.set('videoLength', info.length * 1000);
 		soundChannel.set('currentVideoInfo', info);
 		soundChannel.set('playing', filename);
 		soundChannel.set('settingUpSong', false);
-
-		embed = youtubeEmbed(url, info);
-		channel.send({ embeds: [embed] });
 	},
 	setupSound: function (soundChannel, filename, start, channel) {
 
@@ -132,24 +121,8 @@ module.exports = {
 		clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
 		soundChannel.set('songTimeout', createSongTimeout(soundChannel));
 
-		let songOver = false;
+		soundChannel.set('isSongOver', false);
 
-		// THIS SHOULD ALSO BE MOVED
-		soundChannel.get('eventHandler').on('killSong', () => {
-			if (songOver) { return; }
-			console.log(`Song timed out in: ${soundChannel.get('guild')}\nkilling...`)
-			songOver = true;
-			soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
-		});
-
-		// THIS SHOULD ALSO BE MOVED
-		player.on(AudioPlayerStatus.Idle, function () {
-			if (songOver) { return; }
-			songOver = true;
-			console.log(`Audio finish event triggered in ${soundChannel.get('guild')}`)
-			clearTimeout(soundChannel.get('songTimeout')); // cancel backup skipper
-			soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
-		});
 	},
 	// Gets video link from search query
 	getVideoLink: async function (searchQuery) {
@@ -216,15 +189,6 @@ module.exports = {
 			});
 		});
 		return video;
-	},
-	getTimestamp: function (soundChannel) {
-		let timestamp = getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked');
-		if (soundChannel.get('audio')) {
-			if (soundChannel.get('pauseStarted')) {
-				timestamp -= (getTime() - soundChannel.get('pauseStarted'));
-			}
-		}
-		return parseInt(timestamp);
 	}
 }
 

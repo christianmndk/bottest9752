@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { timestampEmbed } = require('../scripts/embeds')
-const { VoiceChannels } = require('../scripts/voiceConnection')
+const { VoiceChannels } = require('../scripts/helper');
 
 module.exports = {
 	data: new SlashCommandBuilder()

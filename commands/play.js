@@ -1,6 +1,8 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { VoiceChannels, addVoiceConnection } = require('../scripts/voiceConnection');
+const { addVoiceConnection } = require('../scripts/voiceConnection');
 const { playMusic, queue, getVideoLink } = require('../scripts/sound');
+const { VoiceChannels } = require('../scripts/helper');
+const { youtubeEmbed } = require('../scripts/embeds')
 
 
 module.exports = {
@@ -24,7 +26,7 @@ module.exports = {
 		/*--------------*
 		*  CHECK VOICE  *
 		*--------------*/
-		let ConnectionId = interaction.guildId;
+		const ConnectionId = interaction.guildId;
 		if (!interaction.guild) {
 			await interaction.editReply('you can only use this command in a guild');
 			return;
@@ -35,7 +37,7 @@ module.exports = {
 			await addVoiceConnection(interaction);
 			console.log('added voice channel:\n' + ConnectionId);
 		}
-		soundChannel = VoiceChannels.get(ConnectionId)
+		const soundChannel = VoiceChannels.get(ConnectionId)
 		if (!soundChannel.get('id') == interaction.member.voice.channel.id) {
 			await interaction.editReply('You must be in the same voicechannel as the bot to use that command')
 			return;
@@ -43,6 +45,7 @@ module.exports = {
 		/*-------------*
 		*  PLAY VOICE  *
 		*-------------*/
+		soundChannel.set('textChannel', interaction.channel)
 		const searchQuery = interaction.options.getString('search');
 		const start = interaction.options.getInteger('seek');
 		if (soundChannel.get('playing') || soundChannel.get('settingUpSong')) {
@@ -55,7 +58,10 @@ module.exports = {
 			soundChannel.set('settingUpSong', true);
 			const videoInfo = await getVideoLink(searchQuery);
 			playMusic(ConnectionId, videoInfo.url, videoInfo, start, interaction.channel);
-			await interaction.editReply({ content: 'your song will start shortly' });
+
+			// Send embed
+			embed = youtubeEmbed(videoInfo.url, videoInfo);
+			await interaction.editReply({ content: 'your song will start shortly', embeds: [embed] });
 		}
 	},
 };

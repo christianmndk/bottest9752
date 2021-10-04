@@ -1,7 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { getTime } = require('../scripts/helper')
-const { getTimestamp } = require('../scripts/sound')
-const { VoiceChannels } = require('../scripts/voiceConnection')
+const { getTime, VoiceChannels, createSongTimeout, getTimestamp } = require('../scripts/helper');
+const { getTimestamp } = require('../scripts/sound');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -11,22 +10,23 @@ module.exports = {
 		/*------------- *
 		*  CHECK VOICE  *
 		* -------------*/
+		const ConnectionId = interaction.guildId;
 		if (!interaction.guild) {
-			await interaction.editReply('you can only use this command in a guild');
+			await interaction.editReply('You can only use this command in a guild');
 			return;
 		} else if (!interaction.member.voice.channel) {
-			await interaction.editReply('you must be in a voice channel to use that command');
+			await interaction.editReply('You must be in a voice channel to use that command');
 			return;
 		} else if (!VoiceChannels.has(ConnectionId)) {
 			await interaction.editReply('The bot must be in a voicechannel to use that command');
 			return;
 		}
-		let soundChannel = VoiceChannels.get(ConnectionId)
+		const soundChannel = VoiceChannels.get(ConnectionId)
 		if (!soundChannel.get('id') == interaction.member.voice.channel.id) {
 			await interaction.editReply('You must be in the same voicechannel as the bot to use that command');
 			return;
 		}
-		let player = soundChannel.get('audioPlayer');
+		const player = soundChannel.get('audioPlayer');
 		if (!player) {
 			await interaction.editReply('The bot is not playing anything right now');
 			return;
@@ -43,5 +43,6 @@ module.exports = {
 
 		console.log(getTimestamp(soundChannel));
 		console.log('resumed voice channel: ' + ConnectionId);
+		await interaction.editReply('Resuming...');
 	},
 };

@@ -138,6 +138,7 @@ client.on('interactionCreate', async interaction => {
 
 });
 
+/* 
 // Adding a voice
 async function addVoiceConnection(message) {
 	const connection = joinVoiceChannel({
@@ -187,8 +188,8 @@ async function addVoiceConnection(message) {
 		await removeVoiceConnection(info.get('guild'));
 		console.log('removed voice channel: ' + info.get('guild'));
 	});
-}
-
+} */
+/* 
 // removing a voice connection
 async function removeVoiceConnection(ConnectionId) {
 	return new Promise(async resolve => {
@@ -199,7 +200,7 @@ async function removeVoiceConnection(ConnectionId) {
 		VoiceChannels.delete(ConnectionId);
 		resolve(true); // Signal that we are done
 	}); // promise ends
-}
+} */
 
 // notify us when the bot is ready
 client.on('ready', () => {
@@ -248,6 +249,7 @@ client.on('messageCreate', async message => {
 	// Voice channel commands
 	// If the message is starts with soundbot and author is not a bot
 	else if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot) {
+		return;
 		console.log('recieved voice command');
 		// Test to see if the user is in a voicechannel
 		if (message.guild) {
@@ -263,7 +265,6 @@ client.on('messageCreate', async message => {
 		var args = message.content.substring(9).split(' ');
 		var cmd = args[0];
 		args = args.splice(1);
-
 		switch (cmd) {
 			// soundbot ping
 			case 'ping': {

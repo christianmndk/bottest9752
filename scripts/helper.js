@@ -4,6 +4,7 @@ const fs = require('fs')
 let filename = "assets/DefaultSearch.txt";
 
 module.exports = {
+     VoiceChannels: new Map(),
      getTime: function() { return parseInt(new Date().getTime()); },
      createSongTimeout: function (soundChannel) {
           // We increase the expected remaining time by 1 second incase something funky happens
@@ -44,5 +45,17 @@ module.exports = {
                          console.log(`Succesfully deleted ${filename}`);
                     });
           }
-     }
+     },
+     getTimestamp: function (soundChannel) {
+		let timestamp = self.getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked');
+		if (soundChannel.get('audio')) {
+			if (soundChannel.get('pauseStarted')) {
+				timestamp -= (self.getTime() - soundChannel.get('pauseStarted'));
+			}
+		}
+		return parseInt(timestamp);
+	}
 }
+
+// Used to call this files exported functions in other of the exported functions
+const self = module.exports
