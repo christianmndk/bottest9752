@@ -49,6 +49,7 @@ module.exports = {
 			if (nextSongInfo) {
 				playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
 			} else {
+				//console.log(info.get('textChannel'));
 				channel.send({ content: 'The music queue is now empty' });
 				//await info.get('audioPlayer').play('');
 			}
@@ -73,7 +74,7 @@ module.exports = {
 			songOver = true;
 			console.log(`Audio finish event triggered in ${info.get('guild')}`)
 			clearTimeout(info.get('songTimeout')); // cancel backup skipper
-			info.get('eventHandler').emit('SongOver', info);
+			info.get('eventHandler').emit('SongOver', info.get('textChannel'));
 		});
 
 		info.get('eventHandler').on('fileReady', (filename, start) => {

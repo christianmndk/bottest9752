@@ -54,7 +54,18 @@ module.exports = {
 			}
 		}
 		return parseInt(timestamp);
-	}
+	},
+     removeDuplicates: function (array) {
+          for (let t = 0; t < array.length; t++) {
+               for (let h = t+1; h < array.length; h++) {
+                    if (array[t] == array[h]) {
+                         array.splice(h, 1);
+                         h--
+                    }
+               }
+          }
+          return array;
+     }
 }
 
 // Used to call this files exported functions in other of the exported functions

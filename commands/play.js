@@ -46,6 +46,7 @@ module.exports = {
 		*  PLAY VOICE  *
 		*-------------*/
 		soundChannel.set('textChannel', interaction.channel)
+		//console.log(interaction.channel)
 		const searchQuery = interaction.options.getString('search');
 		const start = interaction.options.getInteger('seek');
 		if (soundChannel.get('playing') || soundChannel.get('settingUpSong')) {

@@ -30,6 +30,6 @@ module.exports = {
 				embed.addField(song.get('info').title, song.get('url'));
 			});
 			await interaction.editReply({ embeds: [embed] });
-		} else { message.reply({ content: 'the queue is empty' }); }
+		} else {interaction.editReply({ content: 'the queue is empty' }); }
 	},
 };

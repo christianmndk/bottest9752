@@ -8,7 +8,7 @@ const https = require('https');
 const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels } = require('../scripts/helper.js');
 
 const mainPath = require.main.path;
-const minimumWritten = 20; // create a little buffer before we start streaming
+const minimumWritten = 30; // create a little buffer before we start streaming
 
 module.exports = {
     queue: function (ConnectionId, url, info, start, channel) {
@@ -56,7 +56,7 @@ module.exports = {
 		ytdl.stderr.on('data', async data => { // messages from ytdl
 			//console.log(`ytdl: stderr: ${data}`);
 			if (reDownSpeed[Symbol.match](`${data}`)) {
-				console.log(`ytdl: stderr: ${data}`);
+				//console.log(`ytdl: stderr: ${data}`);
 			}
 		});
 
@@ -77,9 +77,9 @@ module.exports = {
 				written = reWritten[Symbol.match](`${data}`)[0].substring(3);
 				written = written.split(':');
 				written = parseInt(written[0], 10) * 3600 + parseInt(written[1], 10) * 60 + parseInt(written[2], 10);
-				console.log( `ffmpeg: stderr: ${data}`);
+				//console.log( `ffmpeg: stderr: ${data}`);
 				// once we have enough start the song (We must have at least "minimumWritten" seconds)
-				if ( ((written > start && written > minimumWritten) || written >= soundChannel.get('videoLength') / 1000) && !emittedFileReady ) { 
+				if ( ((written > start && written > minimumWritten) || (written >= soundChannel.get('videoLength') / 1000 - 1)) && !emittedFileReady ) { 
 					soundChannel.get('eventHandler').emit('fileReady', filename, start, channel); 
 					emittedFileReady = true;
 				}
@@ -98,7 +98,7 @@ module.exports = {
 	},
 	setupSound: function (soundChannel, filename, start, channel) {
 
-		let player = soundChannel.get('audioPlayer');
+		const player = soundChannel.get('audioPlayer');
 		soundChannel.set('timeStarted', getTime());
 		soundChannel.set('seeked', start * 1000);
 		soundChannel.set('pauseStarted', 0);

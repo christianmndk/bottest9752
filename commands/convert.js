@@ -51,6 +51,10 @@ module.exports = {
 		if (subcommand === 'video') { isVideo = true; }
 		else if (subcommand === 'image') { isVideo = false; }
 
+		if (interaction.option.getString('test')) {
+			console.log(interaction.option.getString('test'));
+			return;
+		}
 		let newFormat = interaction.options.getString('format');
 		if (!(ffmpegRawImageFormats.includes(newFormat) || ffmpegPictureFormats.includes(newFormat) || ffmpegVideoFormats.includes(newFormat))) {
 			await interaction.editReply('The requested format is not supported');
