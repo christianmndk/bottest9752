@@ -3,4 +3,5 @@ auth.json
 .vscode
 client_secret.json
 start.js
+devIds.json
 /songs/*
