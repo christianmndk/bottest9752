@@ -86,6 +86,11 @@ module.exports = {
 		info.get('eventHandler').on('killffmpeg', async () => {
 			ytdl = info.get('ytdl');
 			ffmpeg = info.get('ffmpeg');
+
+			// In the case no music has been played,
+			// but the bot has joined
+			if (!(ffmpeg || ytdl)) {return;} 
+
 			if (ytdl.exitCode == null) { ytdl.kill(); } // doesnt seem to stop downloads
 			if (ffmpeg.exitCode == null) { ffmpeg.kill(); }
 		});

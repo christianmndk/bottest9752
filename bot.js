@@ -30,9 +30,7 @@ const request = https.get(attachment.url, function(response) {
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { Client, MessageAttachment, MessageEmbed, Collection, Intents } = require('discord.js');
-const { joinVoiceChannel, getVoiceConnection, createAudioResource, createAudioPlayer, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
-const { spawn } = require('child_process');
-const { getTime } = require('./scripts/helper')
+const { getTime, VoiceChannels } = require('./scripts/helper')
 const EventEmitter = require('events');
 
 // setup event emitter clas
@@ -186,11 +184,11 @@ client.on('messageCreate', async message => {
 		message.reply('will do!');
 		updateGuildCommands(DEV_GUILD_IDS, DEV_CLIENT_ID);
 	}
-	else if (message.content == 'refreshDevCommands' && message.author.id == DEV_IDS.includes(message.author.id)) {
+	else if (message.content == 'refreshDevCommands' && DEV_IDS.includes(message.author.id)) {
 		message.reply('will do!');
 		updateGuildCommands(null, null, false);
 	}
-	else if (message.content == 'test' && message.author.id == DEV_IDS.includes(message.author.id)) {
+	else if (message.content == 'test' && DEV_IDS.includes(message.author.id)) {
 		message.reply('You are a dev');
 	}
 

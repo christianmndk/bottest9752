@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { addVoiceConnection } = require('../scripts/voiceConnection');
 const { playMusic, queue, getVideoLink } = require('../scripts/sound');
-const { VoiceChannels } = require('../scripts/helper');
+const { VoiceChannels, checkVoice } = require('../scripts/helper');
 const { youtubeEmbed } = require('../scripts/embeds')
 
 
@@ -26,14 +26,12 @@ module.exports = {
 		/*--------------*
 		*  CHECK VOICE  *
 		*--------------*/
+		if (!await checkVoice(interaction, 2)) {
+			return;
+		}
 		const ConnectionId = interaction.guildId;
-		if (!interaction.guild) {
-			await interaction.editReply('you can only use this command in a guild');
-			return;
-		} else if (!interaction.member.voice.channel) {
-			await interaction.editReply('you must be in a voice channel to use that command');
-			return;
-		} else if (!VoiceChannels.has(ConnectionId)) {
+
+		if (!VoiceChannels.has(ConnectionId)) {
 			await addVoiceConnection(interaction);
 			console.log('added voice channel:\n' + ConnectionId);
 		}

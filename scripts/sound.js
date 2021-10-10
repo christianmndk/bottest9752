@@ -2,7 +2,6 @@ const { createAudioResource, StreamType } = require('@discordjs/voice');
 const { Collection } = require('discord.js');
 const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
-const EventEmitter = require('events');
 const https = require('https');
 
 const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels } = require('../scripts/helper.js');
@@ -11,7 +10,7 @@ const mainPath = require.main.path;
 const minimumWritten = 30; // create a little buffer before we start streaming
 
 module.exports = {
-    queue: function (ConnectionId, url, info, start, channel) {
+	queue: function (ConnectionId, url, info, start, channel) {
 		let soundChannel = VoiceChannels.get(ConnectionId);
 		let queueItem = new Collection();
 		queueItem.set('url', url);
@@ -36,6 +35,7 @@ module.exports = {
 
 		// Increment file number and update file name
 		// This should mean that we allways have a clean file for ffmpeg
+		// Otherwise we risk permission errors and other nasty stuff
 		soundChannel.set('fileNumber', soundChannel.get('fileNumber') + 1);
 
 		filename = mainPath + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + '.opus';
@@ -129,19 +129,15 @@ module.exports = {
 		if (!searchQuery) {
 			searchQuery = await getDefaultSearchQuery()
 		}
-		let videoId = "";
-		let video = new Promise(function (resolve, reject) {
-			let wholeDocument = new EventEmitter();
-			https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
-				let documentBody = "";
-				res.on('data', (data) => {
-					documentBody += data;
-					if (data.slice(data.length - 7) == "</html>") { wholeDocument.emit("got", documentBody); }
-				});
+		const video = new Promise(function (resolve, reject) {
+
+		const request = https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
+			let data = "";
+			res.on('data', (newData) => {
+				data += newData;
 			});
 
-			wholeDocument.on("got", async (data) => {
-
+			res.on('end', () => {
 				// Create regex patterns
 				const rePlaylist = /","playlistId":"/;
 				const reInformation = /"videoId":.*?,"vi/g;
@@ -158,35 +154,34 @@ module.exports = {
 				}
 
 				if (result == null) {
-					reject(false)
+					console.log("getVideoLink failed to find any information")
+					reject(false) 
 				}
 
 				// extracts the video Id and adds it to the link
-				videoId = result.slice(11, 22);
-				videoLink = "https://www.youtube.com/watch?v=" + videoId;
-				// extracts the title of the video
-				videoTitle = reTitle[Symbol.match](result)[0].replace('\\u0026', '&');
-				// extracts the thumbnail link of highest quality
-				tempThumbnail = reThumbnail[Symbol.match](result)[0].split(',');
-				videoThumbnailLink = tempThumbnail[tempThumbnail.length - 3].slice(8).slice(0, -1);
-				// extracts the video length
-
-				tempLength = reLength[Symbol.match](result)[0].split('.');
+				const videoId = result.slice(11, 22);
+				const videoLink = "https://www.youtube.com/watch?v=" + videoId;
+				const videoTitle = reTitle[Symbol.match](result)[0].replace('\\u0026', '&');
+				const tempThumbnail = reThumbnail[Symbol.match](result)[0].split(',');
+				const videoThumbnailLink = tempThumbnail[tempThumbnail.length - 3].slice(8).slice(0, -1);
+				const tempLength = reLength[Symbol.match](result)[0].split('.');
 				let time = 0;
 				if (tempLength.length == 3) { time = parseInt(tempLength[0], 10) * 3600 + parseInt(tempLength[1], 10) * 60 + parseInt(tempLength[2], 10); }
 				else { time = parseInt(tempLength[0], 10) * 60 + parseInt(tempLength[1], 10); }
 
 				// we pack the video info nice and tidy
-				let video = {
+				const video = {
 					url: videoLink,
 					title: videoTitle,
 					thumbnail: videoThumbnailLink,
 					length: time
 				};
 				resolve(video);
-
-				//process.stdout.write(data);
 			});
+		});
+
+		request.end()
+
 		});
 		return video;
 	}

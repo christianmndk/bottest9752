@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { removeVoiceConnection } = require('../scripts/voiceConnection')
-const { VoiceChannels } = require('../scripts/helper');
+const { VoiceChannels, checkVoice } = require('../scripts/helper');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -10,8 +10,11 @@ module.exports = {
 		/*--------------*
 		*  CHECK VOICE  *
 		*--------------*/
+		if (!await checkVoice(interaction, 4)) {
+			return;
+		}
 		const ConnectionId = interaction.guildId;
-		if (!interaction.guild) {
+		/* if (!interaction.guild) {
 			await interaction.editReply('you can only use this command in a guild');
 			return;
 		} else if (!interaction.member.voice.channel) {
@@ -20,12 +23,12 @@ module.exports = {
 		} else if (!VoiceChannels.has(ConnectionId)) {
 			await interaction.editReply('The bot must in a voicechannel to use that command')
 			return;
-		}
+		} */
 		const soundChannel = VoiceChannels.get(ConnectionId)
-		if (!soundChannel.get('id') == interaction.member.voice.channel.id) {
+		/* if (!soundChannel.get('id') == interaction.member.voice.channel.id) {
 			await interaction.editReply('You must be in the same voicechannel as the bot to use that command')
 			return;
-		}
+		} */
 		/*--------------*
 		*  LEAVE VOICE  *
 		*--------------*/	

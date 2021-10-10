@@ -10,6 +10,8 @@ module.exports = {
 		/*--------------*
 		*  CHECK VOICE  *
 		*--------------*/
+		// checkVoice cant be used here because you dont have to be in a voice channel
+		// to use this command
 		const ConnectionId = interaction.guildId;
 		if (!interaction.guild) {
 			await interaction.editReply('you can only use this command in a guild');
