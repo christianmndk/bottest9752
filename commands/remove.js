@@ -58,17 +58,18 @@ module.exports = {
 			
 		// Remove 1 item
 		const index = interaction.options.getInteger('index')
-		const start = interaction.options.getInteger('start')
-		const end = interaction.options.getInteger('end')
+		let start = interaction.options.getInteger('start')
+		let end = interaction.options.getInteger('end')
 		if (index) {
 			if (queue.length >= index) {
 				queue.splice(index - 1, 1); // the first item is not at the first index
+				interaction.editReply({ content: `Removed song at position: ${index}` });
 			} else { interaction.editReply('The queue does not have a song at that position'); }
 
 		// two arguments
 		} else if (start && end) {
 			if (start > end) {
-				let tmp = start;
+				const tmp = start;
 				start = end;
 				end = tmp;
 			}
