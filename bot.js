@@ -41,41 +41,46 @@ const botIntents = new Intents([Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUIL
 const client = new Client({ intents: botIntents });
 
 // Create some constants
-IDS = require('./devIds.json')
-const DEV_CLIENT_ID = IDS.devClientId;
-const DEV_IDS = IDS.devIds;
-const DEV_GUILD_IDS = IDS.devGuildIds
-console.log(DEV_CLIENT_ID + '---' + DEV_IDS + '---' + DEV_GUILD_IDS)
+IDS = require('./devIds.json');
 
 // Log at initiation
-console.log(getTime());
+(function() {
+	let d = new Date();
+	console.log(`${d.getDate()}/${d.getMonth()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`);
+})();
 
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
 const auth = require('./auth.json');
 client.login(auth.token);
 
-/*---------------------- *
-* REGISTRERING COMMANDS  *
-* ----------------------*/
+/*----------------------*
+* REGISTRERING COMMANDS *
+* ---------------------*/
 
 // A list of all available functions
 client.commands = new Collection();
 
-async function updateGuildCommands(guildIds, clientId, refresh = true) {
+async function updateGuildCommands(guildIds, clientId, refresh = true, commandFiles = null) {
 	// Clear all commands not all will exist anymore
 	client.commands = new Collection();
 
-	const commands = []
-	const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+	const commands = [];
+	if (commandFiles === null) { 
+		commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+		for (let x in commandFiles) {
+			commandFiles[x] = `./commands/${commandFiles[x].replace('.js', '')}`;
+		}
+	}
+	
+	// Delete the caches
+	refreshScripts(commandFiles);
 
-	console.log(`All files added as commands: ${commandFiles.join(' ')}`)
+	//console.log(`All files added as commands: ${commandFiles.join(' ')}`)
 	for (const file of commandFiles) {
-		// If a module is cached delete it:
-		delete require.cache[require.resolve(`./commands/${file}`)]
-
-		const command = require(`./commands/${file}`);
+		const command = require(`${file}`);
 		// Add it to the list of commands
-		client.commands.set(command.data.name, command)
+		console.log(`Refreshed ${command.data.name}`)
+		client.commands.set(command.data.name, command);
 		// Reregistre all commands
 		if (refresh) {
 			commands.push(command.data.toJSON());
@@ -108,13 +113,12 @@ async function updateGuildCommands(guildIds, clientId, refresh = true) {
 	}
 }
 
-/*-------------------- *
-*  EXECUTING COMMANDS  *
-* --------------------*/
-
 // Everytime we start the bot refreshes the command list
 updateGuildCommands(null, null, false);
 
+/*------------------ *
+* EXECUTING COMMANDS *
+* ------------------*/
 client.on('interactionCreate', async interaction => {
 	console.log('Got interaction');
 	//console.log(interaction);
@@ -123,7 +127,6 @@ client.on('interactionCreate', async interaction => {
 	//console.log(interaction)
 
 	const cmd = client.commands.get(interaction.commandName);
-	console.log(cmd.data.name)
 
 	if (!cmd) {
 		console.log(`${cmd.data.name} is not a registered command`)
@@ -175,22 +178,32 @@ process.on('SIGINT', async function () {
 	process.exit();
 });
 
- /*------------ *
- * DEV COMMANDS *
- * ------------*/
+/*------------ *
+* DEV COMMANDS *
+* ------------*/
 client.on('messageCreate', async message => {
-	// If the message is starts with testbot and author is not a bot
-	if (message.content == 'updateDevCommands' && DEV_IDS.includes(message.author.id)) {
+	// Dev commands
+	if (!IDS.devIds.includes(message.author.id)) { return; }
+
+	if (message.content == 'updateDevCommands') {
 		message.reply('will do!');
-		updateGuildCommands(DEV_GUILD_IDS, DEV_CLIENT_ID);
+		updateGuildCommands(IDS.devGuildIds, IDS.devClientId);
 	}
-	else if (message.content == 'refreshDevCommands' && DEV_IDS.includes(message.author.id)) {
+	else if (message.content == 'refreshDevCommands') {
 		message.reply('will do!');
 		updateGuildCommands(null, null, false);
 	}
-	else if (message.content == 'test' && DEV_IDS.includes(message.author.id)) {
+	else if (message.content.split(' ')[0] == 'refresh') {
+		try {
+			updateGuildCommands(null, null, false, ['./commands/' + message.content.split(' ')[1]]);
+		} catch (err) {
+			console.log(err)
+		}
+	}
+	else if (message.content == 'test') {
 		message.reply('You are a dev');
 	}
+	
 
 	// Voice channel commands
 	// If the message is starts with soundbot and author is not a bot
@@ -243,3 +256,25 @@ client.on('messageCreate', async message => {
 	}
 });
 
+function refreshScripts (commandPaths, dependencies=null, cleared=[]) {
+	// Get maybe updated dependencies map
+	if (dependencies === null) {
+		cleared = [];
+		delete require.cache[require.resolve(`./dependencies`)];
+		({ dependencies } = require("./dependencies"))
+		console.log(commandPaths)
+	}
+	for (const commandPath of commandPaths) {
+		// If we have cleared the cache already dont go deeper 
+		if (cleared.includes(commandPath)) { continue }
+		cleared.push(commandPath)
+		console.log(`removing cache for ${commandPath}`)
+		delete require.cache[require.resolve(`${commandPath}`)];
+		// If we reached the bottom of the dependency tree stop
+		const nextCommandPaths = dependencies.get(commandPath);
+		if (nextCommandPaths == []) { continue }
+		// If not go deeper
+		refreshScripts( nextCommandPaths, dependencies, cleared);
+	}
+	return cleared
+}

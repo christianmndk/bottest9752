@@ -1,6 +1,5 @@
 const { MessageEmbed } = require('discord.js');
 
-
 module.exports = {
 	spotify: function (message) {
 		const spotify = message.author.presence.activities[0];

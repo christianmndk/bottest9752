@@ -93,7 +93,7 @@ module.exports = {
 			return false;
 		}
 		return true;
-	}
+	},
 }
 
 // Used to call this files exported functions in other of the exported functions

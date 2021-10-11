@@ -4,7 +4,7 @@ const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
 const https = require('https');
 
-const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels } = require('../scripts/helper.js');
+const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels } = require('../scripts/helper');
 
 const mainPath = require.main.path;
 const minimumWritten = 30; // create a little buffer before we start streaming
