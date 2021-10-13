@@ -9,8 +9,7 @@ Make conver function argument to look further back than the latest attachemt eg.
 ...
 */
 
-// used so the bot can download things
-const https = require('https');
+// used so the bot can download thing
 const fs = require('fs');
 const fsprom = require('fs/promises');
 
@@ -61,11 +60,10 @@ client.login(auth.token);
 client.commands = new Collection();
 
 async function updateGuildCommands(guildIds, clientId, refresh = true, commandFiles = null) {
-	// Clear all commands not all will exist anymore
-	client.commands = new Collection();
-
+	// Clear all commands but only if we want to reload all of them
 	const commands = [];
 	if (commandFiles === null) { 
+		client.commands = new Collection();
 		commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 		for (let x in commandFiles) {
 			commandFiles[x] = `./commands/${commandFiles[x].replace('.js', '')}`;
@@ -194,6 +192,7 @@ client.on('messageCreate', async message => {
 		updateGuildCommands(null, null, false);
 	}
 	else if (message.content.split(' ')[0] == 'refresh') {
+		message.reply('will do!');
 		try {
 			updateGuildCommands(null, null, false, ['./commands/' + message.content.split(' ')[1]]);
 		} catch (err) {
