@@ -42,7 +42,8 @@ module.exports = {
 		console.log(filename)
 		// Has to contain " or else it will not run on the cmd.exe shell
 		let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
-		let ytdl = spawn('youtube-dl', [url, '-f', formatString, '-o', '-'], { shell: 'cmd.exe' });
+		// We are now using yt-dlp because is it actually being updated
+		let ytdl = spawn('yt-dlp', [url, '-f', formatString, '-o', '-'], { shell: 'cmd.exe' });
 		let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '128k', filename], { shell: 'cmd.exe' });
 		// Save them to the soundchannel for further procesing
 		soundChannel.set('ytdl', ytdl)
@@ -54,7 +55,7 @@ module.exports = {
 		const reDownSpeed = /Ki(?=B\/s)/; // check if the download speed is not in kilo bytes (ends stream early)
 		//const reSpeed = /at[ ]*[0-9]*/; // actual speed in kilo bytes
 		ytdl.stderr.on('data', async data => { // messages from ytdl
-			//console.log(`ytdl: stderr: ${data}`);
+			console.log(`ytdl: stderr: ${data}`);
 			if (reDownSpeed[Symbol.match](`${data}`)) {
 				//console.log(`ytdl: stderr: ${data}`);
 			}
@@ -77,7 +78,7 @@ module.exports = {
 				written = reWritten[Symbol.match](`${data}`)[0].substring(3);
 				written = written.split(':');
 				written = parseInt(written[0], 10) * 3600 + parseInt(written[1], 10) * 60 + parseInt(written[2], 10);
-				//console.log( `ffmpeg: stderr: ${data}`);
+				console.log( `ffmpeg: stderr: ${data}`);
 				// once we have enough start the song (We must have at least "minimumWritten" seconds)
 				if ( ((written > start && written > minimumWritten) || (written >= soundChannel.get('videoLength') / 1000 - 1)) && !emittedFileReady ) { 
 					soundChannel.get('eventHandler').emit('fileReady', filename, start, channel); 

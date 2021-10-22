@@ -28,8 +28,8 @@ const request = https.get(attachment.url, function(response) {
 // Extract the required classes from the required modules
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
-const { Client, MessageAttachment, MessageEmbed, Collection, Intents } = require('discord.js');
-const { getTime, VoiceChannels } = require('./scripts/helper')
+const { Client, Collection, Intents } = require('discord.js');
+const { VoiceChannels } = require('./scripts/helper')
 const EventEmitter = require('events');
 
 // setup event emitter clas
@@ -149,7 +149,7 @@ client.on('ready', () => {
 	fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
 		if (err) {
 			console.log('Retrying to empty song folder');
-			fs.rmSync(__dirname + '\\songs', { maxRetries: 10, recursive: true, retryDelay: 10 }, err => { console.log(err) });
+			fs.rmSync(__dirname + '\\songs', { maxRetries: 10, recursive: true, retryDelay: 1 }, err => { console.log(err) });
 			fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
 				if (err) { console.log('Failed to create empty song folder: continuing anyway: ' + err) }
 				else { console.log('Song folder emptied') }
@@ -167,9 +167,6 @@ process.on('SIGINT', async function () {
 	});
 
 	// add stuff here
-
-	//doesn't work implement other function
-	//fs.rmSync( __dirname + '\\songs', {maxRetries: 10, recursive: true, retryDelay: 10});
 
 	// This should always run last
 	// Make sure everything before this is done executing or it might not finish
@@ -208,21 +205,6 @@ client.on('messageCreate', async message => {
 	// If the message is starts with soundbot and author is not a bot
 	else if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot) {
 		return;
-		console.log('recieved voice command');
-		// Test to see if the user is in a voicechannel
-		if (message.guild) {
-			if (!message.member.voice.channel) {
-				message.reply({ content: 'you must be in a voice channel to use that command' });
-				return;
-			}
-		} else {
-			message.reply({ content: `you can only use this command in a guild` });
-			return;
-		}
-		let ConnectionId = message.guild.id;
-		var args = message.content.substring(9).split(' ');
-		var cmd = args[0];
-		args = args.splice(1);
 		switch (cmd) {
 
 			//soundbot seek
