@@ -23,8 +23,8 @@ module.exports = {
 		soundChannel.set('pausedTime', soundChannel.get('pausedTime') + (getTime() - soundChannel.get('pauseStarted')));
 		soundChannel.set('pauseStarted', 0); // Reset just to be sure
 
-		clearTimeout(soundChannel.get('songTimeout')); // Clear previous timeouts just to be sure
-		soundChannel.set('songTimeout', createSongTimeout(soundChannel)); // Create new timeout
+		//clearTimeout(soundChannel.get('songTimeout')); // Clear previous timeouts just to be sure
+		//soundChannel.set('songTimeout', createSongTimeout(soundChannel)); // Create new timeout
 
 		console.log(getTimestamp(soundChannel));
 		console.log('resumed voice channel: ' + ConnectionId);

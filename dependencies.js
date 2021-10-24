@@ -12,6 +12,7 @@ d.set("./commands/convert", []);
 d.set("./commands/join", ["./scripts/helper", "./scripts/voiceConnection"]);
 d.set("./commands/jschlatt", []);
 d.set("./commands/leave", ["./scripts/helper", "./scripts/voiceConnection"]);
+d.set("./commands/loop", ["./scripts/helper"])
 d.set("./commands/pause", ["./scripts/helper"]);
 d.set("./commands/ping", []);
 d.set("./commands/play", ["./scripts/helper", "./scripts/voiceConnection", "./scripts/sound", "./scripts/embeds"]);

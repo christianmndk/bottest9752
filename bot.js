@@ -245,6 +245,9 @@ function refreshScripts (commandPaths, dependencies=null, cleared=[]) {
 		({ dependencies } = require("./dependencies"))
 		console.log(commandPaths)
 	}
+	if (!(commandPaths instanceof Array)) { 
+		console.error('Remember to update ./dependencies.js') 
+	}
 	for (const commandPath of commandPaths) {
 		// If we have cleared the cache already dont go deeper 
 		if (cleared.includes(commandPath)) { continue }

@@ -1,18 +1,19 @@
 const fsprom = require('fs/promises');
 const fs = require('fs')
+const { Collection } = require('discord.js');
 
 let filename = "assets/DefaultSearch.txt";
 
 module.exports = {
 	VoiceChannels: new Map(),
 	getTime: function() { return parseInt(new Date().getTime()); },
-	createSongTimeout: function (soundChannel) {
+	/* createSongTimeout: function (soundChannel) {
 		// We increase the expected remaining time by 1 second incase something funky happens
 		let timeoutLength = soundChannel.get('videoLength') - soundChannel.get('seeked') - soundChannel.get('pausedTime') + 1000
 		let timeout = setTimeout(() => { soundChannel.get('eventHandler').emit('killSong'); }, timeoutLength);
 		console.log(`created timeout in: ${soundChannel.get('guild')} with length: ${timeoutLength}`)
 		return timeout;
-	},
+	}, */
 	getDefaultSearchQuery: async function () {
 		defaultSearchQuery = new Promise(function (resolve) {
 			fs.readFile(filename, 'utf8', function (err, data) {
@@ -48,10 +49,8 @@ module.exports = {
 	},
 	getTimestamp: function (soundChannel) {
 		let timestamp = self.getTime() - soundChannel.get('timeStarted') - soundChannel.get('pausedTime') + soundChannel.get('seeked');
-		if (soundChannel.get('audio')) {
-			if (soundChannel.get('pauseStarted')) {
-				timestamp -= (self.getTime() - soundChannel.get('pauseStarted'));
-			}
+		if (soundChannel.get('pauseStarted')) {
+			timestamp -= (self.getTime() - soundChannel.get('pauseStarted'));
 		}
 		return parseInt(timestamp);
 	},
@@ -70,30 +69,42 @@ module.exports = {
 		// Level indicates the amount of layers to check with 0 being no layers
 
 		const ConnectionId = interaction.guildId;
-		if (!interaction.guild && level > 0) {
+		if (!interaction.guild && (level >= 1)) {
 			await interaction.editReply('You can only use this command in a guild');
 			return false;
-		} else if (!interaction.member.voice.channel && level > 1) {
+		} else if (!interaction.member.voice.channel && (level >= 2)) {
 			await interaction.editReply('You must be in a voicechannel to use that command');
 			return false;
-		} else if (!self.VoiceChannels.has(ConnectionId ) && level > 2) {
+		} else if (!self.VoiceChannels.has(ConnectionId ) && (level >= 3)) {
 			await interaction.editReply('The bot must be in a voicechannel to use that command');
 			return false;
 		}
 		if (level <= 3) { return true; }
 		const soundChannel = self.VoiceChannels.get(ConnectionId)
-		if (!soundChannel.get('id') == interaction.member.voice.channel.id && level > 3) {
+		if (!soundChannel.get('id') == interaction.member.voice.channel.id && (level >= 4)) {
 			await interaction.editReply('You must be in the same voicechannel as the bot to use that command');
 			return false;
 		}
 		if (level <= 4) { return true; }
-		const player = soundChannel.get('audioPlayer');
-		if ((!player) && level > 4) {
+		if (!soundChannel.get('audioPlayer') && (level >= 5)) {
 			await interaction.editReply('The bot is not playing anything right now');
+			return false;
+		}
+		if (level <= 5) { return true; }
+		if (soundChannel.get('pauseStarted') && (level >= 6)) {
+			await interaction.editReply('The bot is not paused');
 			return false;
 		}
 		return true;
 	},
+	createQueueItem: function (url, info, start, channel) {
+		const queueItem = new Collection();
+		queueItem.set('url', url);
+		queueItem.set('info', info);
+		queueItem.set('start', start);
+		queueItem.set('channel', channel);
+		return queueItem;
+	}
 }
 
 // Used to call this files exported functions in other of the exported functions

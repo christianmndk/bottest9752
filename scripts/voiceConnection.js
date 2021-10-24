@@ -21,14 +21,15 @@ module.exports = {
 		info.set('textChannel', interaction.channel)
 		info.set('connection', connection);
 		info.set('audioPlayer', createAudioPlayer());
-		info.set('songTimeout') // backup incase the audio does not emit a 'finish' event
+		//info.set('songTimeout') // backup incase the audio does not emit a 'finish' event
 		info.set('fileNumber', 0);
 		info.set('eventHandler', new EventEmitter());
-		info.set('currentVideoInfo');
+		info.set('currentVideoInfo', null);
 		info.set('settingUpSong', false);
 		info.set('isSongOver', true);
-		info.set('ffmpeg');
-		info.set('ytdl');
+		info.set('ffmpeg', null);
+		info.set('ytdl', null);
+		info.set('looping', false);
 		// all in milliseconds
 		info.set('timeStarted', 0);
 		info.set('pauseStarted', 0);
@@ -44,10 +45,13 @@ module.exports = {
 		info.get('eventHandler').on('SongOver', async function (channel=info.get('textChannel')) {
 			console.log(`${info.get('playing')}: is done playing playing in: ${info.get('guild')}`);
 			info.set('playing', false);
-			clearTimeout(info.get('songTimeout')); // Clear next song back up to be sure
+			//clearTimeout(info.get('songTimeout')); // Clear next song back up to be sure
 			let nextSongInfo = info.get('queue').shift();
-			if (nextSongInfo) {
-				playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'))
+			if (nextSongInfo && info.get('looping')) {
+				info.get('queue').push(nextSongInfo);
+				playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'));
+			} else if (nextSongInfo) {
+				playMusic(info.get('guild'), nextSongInfo.get('url'), nextSongInfo.get('info'), nextSongInfo.get('start'), nextSongInfo.get('channel'));
 			} else {
 				//console.log(info.get('textChannel'));
 				channel.send({ content: 'The music queue is now empty' });
@@ -60,20 +64,20 @@ module.exports = {
 			console.log('removed voice channel: ' + info.get('guild'));
 		});
 
-		info.get('eventHandler').on('killSong', () => {
+		/* info.get('eventHandler').on('killSong', () => {
 			songOver = info.get('isSongOver');
 			if (songOver) { return; }
-			console.log(`Song timed out in: ${info.get('guild')}\nkilling...`)
+			console.log(`Song timed out in: ${info.get('guild')}: killing...`)
 			songOver = true;
 			info.get('eventHandler').emit('SongOver');
-		});
+		}); */
 
 		info.get('audioPlayer').on(AudioPlayerStatus.Idle, () => {
 			songOver = info.get('isSongOver');
 			if (songOver) { return; }
 			songOver = true;
 			console.log(`Audio finish event triggered in ${info.get('guild')}`)
-			clearTimeout(info.get('songTimeout')); // cancel backup skipper
+			//clearTimeout(info.get('songTimeout')); // cancel backup skipper
 			info.get('eventHandler').emit('SongOver', info.get('textChannel'));
 		});
 
@@ -96,7 +100,6 @@ module.exports = {
 		});
 	},
 	moveVoiceConnection: async function(interaction, guildId) {
-		
 		const connection = joinVoiceChannel({
 			channelId: interaction.member.voice.channel.id,
 			guildId: guildId,
@@ -124,14 +127,3 @@ module.exports = {
 
 // Used to call this files exported functions in other of the exported functions
 const self = module.exports
-
-function _onAudioPlayeUpdate() {
-	info.get('audioPlayer').on(AudioPlayerStatus.Idle, function () {
-		songOver = info.get('isSongOver');
-		if (songOver) { return; }
-		songOver = true;
-		console.log(`Audio finish event triggered in ${soundChannel.get('guild')}`)
-		clearTimeout(soundChannel.get('songTimeout')); // cancel backup skipper
-		soundChannel.get('eventHandler').emit('SongOver', soundChannel, filename, channel);
-	});
-}

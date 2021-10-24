@@ -4,20 +4,20 @@ const { createReadStream } = require('fs');
 const { spawn } = require('child_process');
 const https = require('https');
 
-const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels } = require('../scripts/helper');
+const { getDefaultSearchQuery, getTime, createSongTimeout, deleteFile, VoiceChannels, createQueueItem } = require('../scripts/helper');
 
 const mainPath = require.main.path;
 const minimumWritten = 30; // create a little buffer before we start streaming
 
 module.exports = {
 	queue: function (ConnectionId, url, info, start, channel) {
-		let soundChannel = VoiceChannels.get(ConnectionId);
-		let queueItem = new Collection();
+		const queueItem = createQueueItem(url, info, start, channel);
+		const soundChannel = VoiceChannels.get(ConnectionId);
+		/* const queueItem = new Collection();
 		queueItem.set('url', url);
 		queueItem.set('info', info);
 		queueItem.set('start', start);
-		queueItem.set('channel', channel);
-
+		queueItem.set('channel', channel); */
 		soundChannel.get('queue').push(queueItem);
 	},
 	// TODO IMPLEMENT SEEK FUNCTION BECAUSE SHIT BROKE
@@ -91,9 +91,10 @@ module.exports = {
 		ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code} in ${ConnectionId}`); });
 
 		/* ------------------------- */
+		const currentVideoInfo = new Collection();
 
 		soundChannel.set('videoLength', info.length * 1000);
-		soundChannel.set('currentVideoInfo', info);
+		soundChannel.set('currentVideoInfo', createQueueItem(url, info, start, channel));
 		soundChannel.set('playing', filename);
 		soundChannel.set('settingUpSong', false);
 	},
@@ -119,8 +120,8 @@ module.exports = {
 		player.play(resource)
 
 		// create backup for the 'finish' event so the bot doesn't stall
-		clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
-		soundChannel.set('songTimeout', createSongTimeout(soundChannel));
+		//clearTimeout(soundChannel.get('songTimeout')); // We must stop the previous one first
+		//soundChannel.set('songTimeout', createSongTimeout(soundChannel));
 
 		soundChannel.set('isSongOver', false);
 

@@ -12,7 +12,6 @@ module.exports = {
 		if (!await checkVoice(interaction, 5)) {
 			return;
 		}
-		
 		const ConnectionId = interaction.guildId;
 		const soundChannel = VoiceChannels.get(ConnectionId)
 		const player = soundChannel.get('audioPlayer');
@@ -20,7 +19,7 @@ module.exports = {
 		/*------------- *
 		*  PAUSE VOICE  *
 		* -------------*/
-		clearTimeout(soundChannel.get('songTimeout')); // Stop any timeouts
+		//clearTimeout(soundChannel.get('songTimeout')); // Stop any timeouts
 		player.pause();
 		soundChannel.set('pauseStarted', getTime());
 		console.log('paused voice channel: ' + ConnectionId);
