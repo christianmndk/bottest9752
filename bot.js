@@ -4,7 +4,6 @@ Implement log file
 More clarity in log messages and errors
 different log levels
 
-Make convert function look for latest picture or video based on which format it is trying to convert to
 Make conver function argument to look further back than the latest attachemt eg. the second to last attachment
 ...
 */
@@ -12,8 +11,6 @@ Make conver function argument to look further back than the latest attachemt eg.
 // used so the bot can download thing
 const fs = require('fs');
 const fsprom = require('fs/promises');
-
-const stupidcommands = require("./scripts/stupidcommands");
 
 /*
 How to download

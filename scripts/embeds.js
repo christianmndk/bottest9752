@@ -12,7 +12,7 @@ module.exports = {
 		return embed;
 	},
 	timestampEmbed: function (soundChannel) {
-		let info = soundChannel.get('currentVideoInfo');
+		let info = soundChannel.get('currentVideoInfo').get('info');
 		let videoLength = info.length;
 		let time = Math.floor(getTimestamp(soundChannel) / 1000);
 		let timestr = '';
