@@ -8,6 +8,17 @@ Make conver function argument to look further back than the latest attachemt eg.
 ...
 */
 
+/******************************************************************************
+ * Updating commands at runtime:
+ * If you created or updated a new command or script make sure you update 
+ * dependencies.js
+ * Write the following in any textchannel
+ * To update a single command and dependencies: refresh COMMAND
+ * To update every command and dependencies: refreshDevCommands
+ * To [re]register a (new) command to dev servers: updateDevCommands
+ * // implement global command push
+******************************************************************************/
+
 // used so the bot can download thing
 const fs = require('fs');
 const fsprom = require('fs/promises');
@@ -26,11 +37,8 @@ const request = https.get(attachment.url, function(response) {
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { Client, Collection, Intents } = require('discord.js');
-const { VoiceChannels } = require('./scripts/helper')
-const EventEmitter = require('events');
-
-// setup event emitter clas
-class MyEmitter extends EventEmitter { };
+const { VoiceChannels } = require('./NR')
+const { removeVoiceConnection } = require('./scripts/voiceConnection')
 
 // Create an instance of a Discord client with intents
 const botIntents = new Intents([Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILDS, Intents.FLAGS.DIRECT_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES]);
@@ -39,8 +47,8 @@ const client = new Client({ intents: botIntents });
 // Create some constants
 IDS = require('./devIds.json');
 
-// Log at initiation
-(function() {
+// Log time of initiation
+(() => {
 	let d = new Date();
 	console.log(`${d.getDate()}/${d.getMonth()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`);
 })();
@@ -86,9 +94,9 @@ async function updateGuildCommands(guildIds, clientId, refresh = true, commandFi
 	if (!refresh) { return; }
 
 	const rest = new REST({ version: 9 }).setToken(auth.token);
-
+	const guildStr = guildIds.join(' and ');
 	try {
-		console.log(`Refresing guild slash commands in ${guildIds.join(' and ')}`);
+		console.log(`Refresing guild slash commands in ${guildStr}`);
 		const rests = [];
 		guildIds.forEach(guildId => {
 			rests.push(
@@ -100,10 +108,10 @@ async function updateGuildCommands(guildIds, clientId, refresh = true, commandFi
 		});
 		// wait for all guild commands to be loaded
 		await Promise.all(rests);
-		console.log(`Succesfully reloaded guild slash commadns in ${guildIds.join(' and ')}`)
+		console.log(`Succesfully reloaded guild slash commadns in ${guildStr}`)
 
 	} catch (err) {
-		console.error(`Error when reloading guild commands in ${guildIds.join(' and ')}`)
+		console.error(`Error when reloading guild commands in ${guildStr}`)
 		console.error(err)
 	}
 }
@@ -137,10 +145,9 @@ client.on('interactionCreate', async interaction => {
 		console.error(err)
 		await interaction.followUp({ content: `${cmd.data.name} failed when executing`, ephemeral: true }) 
 	}
-
 });
 
-// notify us when the bot is ready
+// Notify us when the bot is ready
 client.on('ready', () => {
 	console.log('I am ready!');
 	fs.mkdir(__dirname + '\\songs', { recursive: false }, (err) => {
@@ -155,8 +162,16 @@ client.on('ready', () => {
 	});
 });
 
-// is run when node js is stopped using CTRL-c
+// Is run when node js is stopped using CTRL-c
+let SIGINT_CAUGHT = false;
 process.on('SIGINT', async function () {
+
+	if (SIGINT_CAUGHT) { 
+		console.error('SIGINT ALLREADY CAUGHT: FORCE EXITING')
+		process.exit(); 
+	}
+	SIGINT_CAUGHT = true;
+
 	console.log('Caught interrupt signal');
 
 	VoiceChannels.forEach(async (soundChannel) => {
@@ -200,8 +215,8 @@ client.on('messageCreate', async message => {
 
 	// Voice channel commands
 	// If the message is starts with soundbot and author is not a bot
-	else if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot) {
-		return;
+	return;
+	if (message.content.substring(0, 9) == 'soundbot ' && !message.author.bot) {
 		switch (cmd) {
 
 			//soundbot seek

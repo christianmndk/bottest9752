@@ -1,6 +1,6 @@
 const { joinVoiceChannel, createAudioPlayer } = require('@discordjs/voice');
-const { playMusic, setupSound } = require('../scripts/sound')
-const { VoiceChannels } = require('../scripts/helper')
+const { playMusic, setupSound } = require('../scripts/sound');
+const { VoiceChannels } = require('../NR');
 const EventEmitter = require('events');
 const { AudioPlayerStatus } = require('@discordjs/voice');
 
@@ -122,7 +122,7 @@ module.exports = {
 			VoiceChannels.delete(ConnectionId);
 			resolve(true); // Signal that we are done
 		}); // promise ends
-	}
+	},
 };
 
 // Used to call this files exported functions in other of the exported functions

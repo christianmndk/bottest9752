@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { MessageEmbed } = require('discord.js');
-const { VoiceChannels } = require('../scripts/helper');
+const { VoiceChannels } = require('../NR');
 
 module.exports = {
 	data: new SlashCommandBuilder()

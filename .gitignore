@@ -1,6 +1,7 @@
 auth.json
 .vs
 .vscode
+jsconfig.json
 client_secret.json
 start.js
 devIds.json

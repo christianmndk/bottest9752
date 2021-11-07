@@ -1,11 +1,11 @@
 const fsprom = require('fs/promises');
 const fs = require('fs')
 const { Collection } = require('discord.js');
+const { VoiceChannels } = require('../NR');
 
 let filename = "assets/DefaultSearch.txt";
 
 module.exports = {
-	VoiceChannels: new Map(),
 	getTime: function() { return parseInt(new Date().getTime()); },
 	/* createSongTimeout: function (soundChannel) {
 		// We increase the expected remaining time by 1 second incase something funky happens
@@ -75,23 +75,23 @@ module.exports = {
 		} else if (!interaction.member.voice.channel && (level >= 2)) {
 			await interaction.editReply('You must be in a voicechannel to use that command');
 			return false;
-		} else if (!self.VoiceChannels.has(ConnectionId ) && (level >= 3)) {
+		} else if (!VoiceChannels.has(ConnectionId ) && (level >= 3)) {
 			await interaction.editReply('The bot must be in a voicechannel to use that command');
 			return false;
 		}
 		if (level <= 3) { return true; }
-		const soundChannel = self.VoiceChannels.get(ConnectionId)
+		const soundChannel = VoiceChannels.get(ConnectionId)
 		if (!soundChannel.get('id') == interaction.member.voice.channel.id && (level >= 4)) {
 			await interaction.editReply('You must be in the same voicechannel as the bot to use that command');
 			return false;
 		}
-		if (level <= 4) { return true; }
-		if (!soundChannel.get('audioPlayer') && (level >= 5)) {
+		//if (level <= 4) { return true; }
+		else if (!soundChannel.get('audioPlayer') && (level >= 5)) {
 			await interaction.editReply('The bot is not playing anything right now');
 			return false;
 		}
-		if (level <= 5) { return true; }
-		if (soundChannel.get('pauseStarted') && (level >= 6)) {
+		//if (level <= 5) { return true; }
+		else if (soundChannel.get('pauseStarted') && (level >= 6)) {
 			await interaction.editReply('The bot is not paused');
 			return false;
 		}
