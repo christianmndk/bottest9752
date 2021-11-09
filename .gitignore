@@ -6,3 +6,4 @@ client_secret.json
 start.js
 devIds.json
 /songs/*
+/config/*

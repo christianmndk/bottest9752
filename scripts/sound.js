@@ -1,8 +1,9 @@
 const { createAudioResource, StreamType } = require('@discordjs/voice');
 const { Collection } = require('discord.js');
-const { createReadStream } = require('fs');
+const { createReadStream, writeFileSync } = require('fs');
 const { spawn } = require('child_process');
 const https = require('https');
+
 
 const { getDefaultSearchQuery, getTime, deleteFile, createQueueItem } = require('../scripts/helper');
 const { VoiceChannels } = require('../NR');
@@ -150,8 +151,9 @@ module.exports = {
 
 				// We extract a snippet of the whole document containing the relevant information about the video and loop through them until it is not a playlist
 				let result = reInformation[Symbol.match](data)[0];
+				writeFileSync('test.txt', result, () => {});
 				let i = 1;
-				while (rePlaylist[Symbol.match](result)) {
+				while (rePlaylist[Symbol.match](result) || reLength[Symbol.match](result) == null) {
 					result = reInformation[Symbol.match](data)[i];
 					i++;
 				}
