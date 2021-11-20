@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const https = require('https');
 
 
-const { getDefaultSearchQuery, getTime, deleteFile, createQueueItem } = require('../scripts/helper');
+const { getDefaultSearchQuery, getTime, deleteFile, createQueueItem, titleFromVideoPage } = require('../scripts/helper');
 const { VoiceChannels } = require('../NR');
 
 const mainPath = require.main.path;
@@ -133,15 +133,30 @@ module.exports = {
 		if (!searchQuery) {
 			searchQuery = await getDefaultSearchQuery()
 		}
-		const video = new Promise(function (resolve, reject) {
 
-		const request = https.get("https://www.youtube.com/results?search_query=" + searchQuery, (res) => {
+		const video = new Promise(async function (resolve, reject) {
+
+		let URL;
+		// check if a valid youtube link has been put into the search
+		if      (searchQuery.startsWith('https://www.youtube.com/watch?')) { URL = searchQuery }
+		else if (searchQuery.startsWith('www.youtube.com/watch?'))         { URL = `https://${searchQuery}` }
+		if (!(URL === undefined)) {
+			searchQuery = await titleFromVideoPage(URL).catch( (rejectText) => {
+				reject(rejectText);
+				return null;
+			});
+			if (searchQuery === null) { return; }
+		}
+		URL = `https://www.youtube.com/results?search_query=${searchQuery}`
+
+		const request = https.get(URL, (res) => {
 			let data = "";
 			res.on('data', (newData) => {
 				data += newData;
 			});
 
 			res.on('end', () => {
+				
 				// Create regex patterns
 				const rePlaylist = /","playlistId":"/;
 				const reInformation = /"videoId":.*?,"vi/g;
@@ -150,8 +165,12 @@ module.exports = {
 				const reLength = /(?<=}},"simpleText":")[\d\.]+/;
 
 				// We extract a snippet of the whole document containing the relevant information about the video and loop through them until it is not a playlist
-				let result = reInformation[Symbol.match](data)[0];
-				writeFileSync('test.txt', result, () => {});
+				let result = reInformation[Symbol.match](data)
+				if (!result) {
+					reject(false);
+					return;
+				}
+				result = result[0];
 				let i = 1;
 				while (rePlaylist[Symbol.match](result) || reLength[Symbol.match](result) == null) {
 					result = reInformation[Symbol.match](data)[i];
@@ -185,11 +204,11 @@ module.exports = {
 			});
 		});
 
-		request.end()
+		request.end();
 
 		});
 		return video;
-	}
+	},
 }
 
 const self = module.exports

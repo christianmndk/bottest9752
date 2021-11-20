@@ -49,16 +49,30 @@ module.exports = {
 		const searchQuery = interaction.options.getString('search');
 		const start = interaction.options.getInteger('seek');
 		if (soundChannel.get('playing') || soundChannel.get('settingUpSong')) {
-			const videoInfo = await getVideoLink(searchQuery); // must be run in both or else we risk playing two song simultaneously 
+			// must be run in both or else we risk playing two song simultaneously
+			const videoInfo = await getVideoLink(searchQuery).catch( (err) => {
+				console.log(`No match for ${searchQuery} with reject ${err}`);
+				return null;
+			});
+			if (videoInfo === null) {
+				await interaction.editReply('Found no video that mached with that search');
+				return;
+			}
 			queue(ConnectionId, videoInfo.url, videoInfo, start, interaction.channel);
 			console.log(`Queued "${videoInfo.url}" in ${ConnectionId}`);
 			await interaction.editReply({ content: 'your song is now queued' });
 			return;
 		} else {
 			soundChannel.set('settingUpSong', true);
-			const videoInfo = await getVideoLink(searchQuery);
+			const videoInfo = await getVideoLink(searchQuery).catch( (err) => {
+				console.log(`No match for ${searchQuery} with reject ${err}`);
+				return null;
+			});
+			if (videoInfo === null) {
+				await interaction.editReply('Found no video that mached with that search');
+				return;
+			}
 			playMusic(ConnectionId, videoInfo.url, videoInfo, start, interaction.channel);
-
 			// Send embed
 			embed = youtubeEmbed(videoInfo.url, videoInfo);
 			await interaction.editReply({ content: 'your song will start shortly', embeds: [embed] });

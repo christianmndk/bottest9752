@@ -1,4 +1,5 @@
 const fsprom = require('fs/promises');
+const https = require('https');
 const fs = require('fs')
 const { Collection } = require('discord.js');
 const { VoiceChannels } = require('../NR');
@@ -104,6 +105,41 @@ module.exports = {
 		queueItem.set('start', start);
 		queueItem.set('channel', channel);
 		return queueItem;
+	},
+	titleFromVideoPage: async function (URL) {
+		const title = new Promise(function (resolve, reject) {
+		const request = https.get(URL, (res) => {
+			let data = "";
+			res.on('data', (newData) => {
+				data += newData;
+			});
+
+			res.on('end', () => {
+				// Create regex patterns
+				const reTitle = /<title>.*?<\/title>/;
+
+				let tmptitle = reTitle[Symbol.match](data)
+				if (!tmptitle) { // REMEMBER TO NEGATE
+					reject('No <title> found; probably not a real URL');
+					return;
+				}
+				tmptitle = tmptitle[0];
+
+				if (!tmptitle.endsWith(' - YouTube</title>')) {
+					reject("title does not end with - Youtube; not a youtube link");
+					return;
+				}
+				console.log("FOUND TITLE")
+				tmptitle = tmptitle.substring(7, tmptitle.length-18)
+				resolve(tmptitle);
+			});
+		});
+		
+		request.end();
+
+		});
+
+		return title;
 	}
 }
 
