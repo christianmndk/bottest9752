@@ -46,7 +46,7 @@ module.exports = {
 		let formatString = '"bestaudio/best[abr>96][height<=480]/best[abr<=96][height<=480]/best[height<=720]/best[height<=1080]/best"';
 		// We are now using yt-dlp because is it actually being updated
 		let ytdl = spawn('yt-dlp', [url, '-f', formatString, '-o', '-'], { shell: 'cmd.exe' });
-		let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a:v', 'copy', '-b:a', '128k', filename], { shell: 'cmd.exe' });
+		let ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-c:a', 'copy', '-b:a', '128k', filename], { shell: 'cmd.exe' });
 		// Save them to the soundchannel for further procesing
 		soundChannel.set('ytdl', ytdl)
 		soundChannel.set('ffmpeg', ffmpeg)
