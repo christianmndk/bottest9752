@@ -22,7 +22,6 @@ Make conver function argument to look further back than the latest attachemt eg.
 // used so the bot can download thing
 const fs = require('fs');
 const fsprom = require('fs/promises');
-
 /*
 How to download
 // Find the file type and download it
@@ -55,6 +54,7 @@ IDS = require('./devIds.json');
 
 // Log our bot in using the token from https://discordapp.com/developers/applications/me
 const auth = require('./auth.json');
+const test = require('./commands/test');
 client.login(auth.token);
 
 /*----------------------*

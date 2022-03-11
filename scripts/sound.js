@@ -1,6 +1,6 @@
 const { createAudioResource, StreamType } = require('@discordjs/voice');
 const { Collection } = require('discord.js');
-const { createReadStream, writeFileSync } = require('fs');
+const { createReadStream, writeFileSync, ReadStream } = require('fs');
 const { spawn } = require('child_process');
 const https = require('https');
 
@@ -34,6 +34,7 @@ module.exports = {
 
 		// Delete previous file if found
 		deleteFile(filename);
+		deleteFile(mainPath + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + 'seek' + '.opus');
 
 		// Increment file number and update file name
 		// This should mean that we allways have a clean file for ffmpeg
@@ -50,7 +51,6 @@ module.exports = {
 		// Save them to the soundchannel for further procesing
 		soundChannel.set('ytdl', ytdl)
 		soundChannel.set('ffmpeg', ffmpeg)
-
 		/* -------YTDL EVENTS------- */
 		ytdl.on('error', async error => { console.log('error: ' + error) });
 		ytdl.stdout.on('data', async data => { ffmpeg.stdin.write(data); }); // Writes data to ffmpeg
@@ -74,6 +74,7 @@ module.exports = {
 		const reWritten = /me=[:\d]*/;
 		let written = 0;
 		let emittedFileReady = false;
+
 		// check when the audio file has some data
 		ffmpeg.stderr.on('data', async data => {
 			if (`${data}`.startsWith('size=')) {
@@ -82,15 +83,30 @@ module.exports = {
 				written = parseInt(written[0], 10) * 3600 + parseInt(written[1], 10) * 60 + parseInt(written[2], 10);
 				console.log( `ffmpeg: stderr: ${data}`);
 				// once we have enough start the song (We must have at least "minimumWritten" seconds)
-				if ( ((written > start && written > minimumWritten) || (written >= soundChannel.get('videoLength') / 1000 - 1)) && !emittedFileReady ) { 
-					soundChannel.get('eventHandler').emit('fileReady', filename, start, channel); 
-					emittedFileReady = true;
-				}
+				if ( ((written > start && written > minimumWritten) || (written >= soundChannel.get('videoLength') / 1000 - 1)) && !emittedFileReady ) {
+					soundChannel.set('readStream', createReadStream(filename));  // Create a read stream, that can be used to seek without having to wait for a full download
+					if (!start) {
+						soundChannel.get('eventHandler').emit('fileReady', filename, start);
+						emittedFileReady = true;
+					} else {
+						self.seek(ConnectionId, soundChannel, start);
+					}
+				} 
+				
 				//console.log( `ffmpeg: stderr: ${data}`);
 			}
 			//console.log( `ffmpeg: stderr: ${data}`);
 		});
-		ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code} in ${ConnectionId}`); });
+		ffmpeg.on('close', (code) => { 
+			console.log(`ffmpeg process exited with code ${code} in ${ConnectionId}`); 
+			if (code == 0) {
+				//
+				// SHOULD BE CALLED HERE, BUT THEN IT RUINS SEEK, AS IT DESTROYES THE STREAM FASTER THAN THE OTHER 
+				//	CAN BEGIN IN CASES WHERE THE SONG IS SMALL AND DOWNLOAD SPEED IS HIGH
+				//  IT IS CURRENTLY CALLED IN SONGOVER
+				//soundChannel.get('readStream').destroy(); 
+			}
+		});
 
 		/* ------------------------- */
 		const currentVideoInfo = new Collection();
@@ -139,6 +155,7 @@ module.exports = {
 		let URL;
 		// check if a valid youtube link has been put into the search
 		if      (searchQuery.startsWith('https://www.youtube.com/watch?')) { URL = searchQuery }
+		else if (searchQuery.startsWith('http://www.youtube.com/watch?')) { URL = searchQuery }
 		else if (searchQuery.startsWith('www.youtube.com/watch?'))         { URL = `https://${searchQuery}` }
 		if (!(URL === undefined)) {
 			searchQuery = await titleFromVideoPage(URL).catch( (rejectText) => {
@@ -209,6 +226,75 @@ module.exports = {
 		});
 		return video;
 	},
+	seek: async function(ConnectionId, soundChannel, time) {
+		let readStream = soundChannel.get('readStream')
+
+		let filename = mainPath + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild') + "seek" +'.opus';
+		let filestump = mainPath + '\\songs\\' + soundChannel.get('fileNumber') + soundChannel.get('guild');
+
+		fullLength = soundChannel.get('videoLength');
+		if (fullLength < time) {
+			self.skip(soundChannel);
+			return null;
+		}
+
+		let ffmpeg
+		if (!readStream) {
+			return false
+		} else if (readStream.destroyed) { // If the song is fully downloaded, the readstream is no more so use the file
+			console.log('FILE')
+			ffmpeg = spawn('ffmpeg', ['-y', '-ss', time, '-i', `${filestump}.opus`, '-c:a', 'copy', '-b:a', '128k', filename], { shell: 'cmd.exe' });
+		} else {								 // Else use the readstream
+			console.log('READSTREAM')
+			ffmpeg = spawn('ffmpeg', ['-y', '-i', '-', '-ss', time, '-c:a', 'copy', '-b:a', '128k', filename], { shell: 'cmd.exe' });
+
+			// readstrem operation
+			readStream.pipe(ffmpeg.stdin);
+			readStream.on('close', (code) => { 
+				ffmpeg.stdin.end();
+			});
+		}
+
+		// Save them to the soundchannel for further procesing
+		soundChannel.set('ffmpeg', ffmpeg)
+
+		/* ------FFMPEG EVENTS------ */
+
+		// Find how much we have written to file
+		const reWritten = /me=[:\d]*/;
+		let written = 0;
+		let emittedFileReady = false;
+		// check when the audio file has some data
+		ffmpeg.stderr.on('data', async data => {
+			if (`${data}`.startsWith('size=')) {
+				written = reWritten[Symbol.match](`${data}`)[0].substring(3);
+				written = written.split(':');
+				written = parseInt(written[0], 10) * 3600 + parseInt(written[1], 10) * 60 + parseInt(written[2], 10);
+				console.log( `ffmpeg: stderr: ${data}`);
+				// once we have enough start the song (We must have at least "minimumWritten" seconds)
+				if ( (( written > minimumWritten) || (written >= fullLength / 1000 - 1 - time)) && !emittedFileReady ) {
+					emittedFileReady = true;
+					soundChannel.get('eventHandler').emit('fileReady', filename, time); 
+				}
+				//console.log( `ffmpeg: stderr: ${data}`);
+			}
+			//console.log( `ffmpeg: stderr: ${data}`);
+		});
+		ffmpeg.on('close', (code) => { console.log(`ffmpeg process exited with code ${code} in ${ConnectionId}`); });
+		return true;
+	},
+	skip: async function(soundChannel) {
+		const player = soundChannel.get('audioPlayer');
+		soundChannel.get('eventHandler').emit('killffmpeg');
+		if (soundChannel.get('queue').length > 0) {
+			soundChannel.set('playing', false);
+			soundChannel.get('eventHandler').emit('SongOver');
+		} else {
+			player.stop()
+			soundChannel.set('playing', false);
+			soundChannel.set('ended', true);
+		}
+	}
 }
 
 const self = module.exports

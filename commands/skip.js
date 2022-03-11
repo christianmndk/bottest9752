@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { checkVoice } = require('../scripts/helper');
 const { VoiceChannels } = require('../NR');
+const { skip } = require('../scripts/sound')
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -15,21 +16,22 @@ module.exports = {
 		}
 		const ConnectionId = interaction.guildId;
 		const soundChannel = VoiceChannels.get(ConnectionId)
-		const player = soundChannel.get('audioPlayer');
+		//const player = soundChannel.get('audioPlayer');
 
 		/*----------- *
 		*  SKIP SONG  *
 		* -----------*/
+		skip(soundChannel);
+		/*
 		soundChannel.get('eventHandler').emit('killffmpeg');
 		if (soundChannel.get('queue').length > 0) {
-			filename = soundChannel.get('playing');
 			soundChannel.set('playing', false);
 			soundChannel.get('eventHandler').emit('SongOver', interaction.channel);
 		} else {
 			player.stop()
 			soundChannel.set('playing', false);
 			soundChannel.set('ended', true);
-		}
+		}*/
 		clearTimeout(soundChannel.get('songTimeout')); // Clear any timeouts we have
 		await interaction.editReply('Skipping...');
 	},

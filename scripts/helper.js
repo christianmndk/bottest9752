@@ -30,21 +30,21 @@ module.exports = {
 			.then(() => { return true; })
 			.catch(err => {
 				if (err.code !== 'ENOENT') {
-					console.log(`unexpected error when checking for song file:\n${err}\nTrying to delete anyways`);
+					console.log(`unexpected error when checking for file:\n${err}\nTrying to delete anyways`);
 					return true;
 				}
 				else if (err.code == 'ENOENT') {
-					console.log(`${filename} is already deleted`);
+					//console.log(`${filename} is already deleted`);
 					return false;
 				}
 			});
 		if (exists) {
 			fsprom.rm(filename, { force: true, maxRetries: 1000, recursive: true })
 				.catch(err => {
-					console.log(`unexpected error when deleting for song file:\n${err}`);
+					console.log(`unexpected error when deleting file:\n${err}`);
 				})
 				.then(() => {
-					console.log(`Succesfully deleted ${filename}`);
+					//console.log(`Succesfully deleted ${filename}`);
 				});
 		}
 	},
@@ -70,27 +70,33 @@ module.exports = {
 		// Level indicates the amount of layers to check with 0 being no layers
 
 		const ConnectionId = interaction.guildId;
+		// Text in guild = 1
 		if (!interaction.guild && (level >= 1)) {
 			await interaction.editReply('You can only use this command in a guild');
 			return false;
+		// You in a voice channel = 2
 		} else if (!interaction.member.voice.channel && (level >= 2)) {
 			await interaction.editReply('You must be in a voicechannel to use that command');
 			return false;
+		// Bot is in a voice channel = 3
 		} else if (!VoiceChannels.has(ConnectionId ) && (level >= 3)) {
 			await interaction.editReply('The bot must be in a voicechannel to use that command');
 			return false;
 		}
+		// Is in same voice channel = 4
 		if (level <= 3) { return true; }
 		const soundChannel = VoiceChannels.get(ConnectionId)
 		if (!soundChannel.get('id') == interaction.member.voice.channel.id && (level >= 4)) {
 			await interaction.editReply('You must be in the same voicechannel as the bot to use that command');
 			return false;
 		}
+		// Is playing = 5
 		//if (level <= 4) { return true; }
 		else if (!soundChannel.get('audioPlayer') && (level >= 5)) {
 			await interaction.editReply('The bot is not playing anything right now');
 			return false;
 		}
+		// Is paused = 6
 		//if (level <= 5) { return true; }
 		else if (soundChannel.get('pauseStarted') && (level >= 6)) {
 			await interaction.editReply('The bot is not paused');
@@ -140,7 +146,48 @@ module.exports = {
 		});
 
 		return title;
+	},
+	ConvertSecondsToTimestamp: function (videoLength, time) {
+		let timestr = '';
+		let timestrtmp = '';
+		let tmp;
+		// hours
+		if (videoLength >= 3600) {
+			tmp = Math.floor(time / 3600);
+			timestr += _TimestampFormat(tmp) + ':';
+			time -= 3600 * tmp;
+
+			tmp = Math.floor(videoLength / 3600);
+			timestrtmp += _TimestampFormat(tmp) + ':';
+			videoLength -= 3600 * tmp;
+		}
+
+		// minutes
+		tmp = Math.floor(time / 60);
+		timestr += _TimestampFormat(tmp) + ':';
+		time -= 60 * tmp;
+
+		tmp = Math.floor(videoLength / 60);
+		timestrtmp += _TimestampFormat(tmp) + ':';
+		videoLength -= 60 * tmp;
+
+		//seconds
+		timestr += _TimestampFormat(Math.floor(time));
+		timestrtmp += _TimestampFormat(Math.floor(videoLength));
+
+		timestr += ' / ' + timestrtmp;
+		return timestr;
+	},
+}
+
+function _TimestampFormat(time) {
+	let timestr = ''
+	if (time < 10) {
+		timestr += '0' + time
+	} else {
+		timestr += time
 	}
+	return timestr;
 }
 
 // Used to call this files exported functions in other of the exported functions

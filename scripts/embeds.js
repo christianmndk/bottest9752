@@ -1,5 +1,5 @@
 const { MessageEmbed } = require('discord.js');
-const { getTimestamp } = require('../scripts/helper');
+const { getTimestamp, ConvertSecondsToTimestamp } = require('../scripts/helper');
 
 module.exports = {
 	youtubeEmbed: function (url, videoInfo) {
@@ -15,35 +15,7 @@ module.exports = {
 		let info = soundChannel.get('currentVideoInfo').get('info');
 		let videoLength = info.length;
 		let time = Math.floor(getTimestamp(soundChannel) / 1000);
-		let timestr = '';
-		let timestrtmp = '';
-		let tmp;
-		// hours
-		if (videoLength >= 3600) {
-			tmp = Math.floor(time / 3600);
-			timestr += _TimestampFormat(tmp) + ':';
-			time -= 3600 * tmp;
-
-			tmp = Math.floor(videoLength / 3600);
-			timestrtmp += _TimestampFormat(tmp) + ':';
-			videoLength -= 3600 * tmp;
-		}
-
-		// minutes
-		tmp = Math.floor(time / 60);
-		timestr += _TimestampFormat(tmp) + ':';
-		time -= 60 * tmp;
-
-		tmp = Math.floor(videoLength / 60);
-		timestrtmp += _TimestampFormat(tmp) + ':';
-		videoLength -= 60 * tmp;
-
-		//seconds
-		timestr += _TimestampFormat(Math.floor(time));
-		timestrtmp += _TimestampFormat(Math.floor(videoLength));
-
-		timestr += ' / ' + timestrtmp;
-
+		let timestr = ConvertSecondsToTimestamp(videoLength, time);
 		const embed = new MessageEmbed()
 			.setColor('#FF0000')
 			.setTitle('Youtube playing:')

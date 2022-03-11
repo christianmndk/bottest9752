@@ -12,7 +12,7 @@ module.exports = {
 			adapterCreator: interaction.guild.voiceAdapterCreator
 		});
 		var info = new Map();
-		info.set('playing', false);
+		info.set('playing', false); // might be seeked
 		info.set('queue', new Array());
 		info.set('ended', true);
 		info.set('id', interaction.member.voice.channel.id);
@@ -29,13 +29,14 @@ module.exports = {
 		info.set('isSongOver', true);
 		info.set('ffmpeg', null);
 		info.set('ytdl', null);
+		info.set('readStream', null)
 		info.set('looping', false);
 		// all in milliseconds
 		info.set('timeStarted', 0);
 		info.set('pauseStarted', 0);
 		info.set('videoLength', 0);
 		info.set('pausedTime', 0);
-		info.set('seeked', 0)
+		info.set('seeked', 0);
 
 		//console.log(info.get('guild'));
 		connection.subscribe(info.get('audioPlayer')); // Connect the audio connection to the audioplayer
@@ -44,6 +45,7 @@ module.exports = {
 
 		info.get('eventHandler').on('SongOver', async function (channel=info.get('textChannel')) {
 			console.log(`${info.get('playing')}: is done playing playing in: ${info.get('guild')}`);
+			info.get('readStream').destroy(); // SHOULD BE CALLED IN PLAY (sounds.js)
 			info.set('playing', false);
 			//clearTimeout(info.get('songTimeout')); // Clear next song back up to be sure
 			let nextSongInfo = info.get('queue').shift();
